@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from dragshift import app, i18n, imaging, report, settings, tools
+from banana import app, i18n, imaging, report, settings, tools
 
 PKG = Path(app.__file__).parent
 
@@ -83,7 +83,7 @@ def test_language_choice():
 def test_spanish_menu_summary_and_file_names(tmp_path, spanish):
     src = tmp_path / "Foto.png"
     Image.effect_noise((300, 200), 60).convert("RGB").save(src)   # noise: JPG is smaller than PNG
-    rings = app.DragShiftApp.build_rings(None, [str(src)])
+    rings = app.BananaApp.build_rings(None, [str(src)])
     assert list(rings) == ["Convertir", "Herramientas"]
     assert "Comprimir" in [i.label for i in rings["Herramientas"]]
     assert {i.key for i in rings["Herramientas"]} >= {"tool:Compress", "tool:Crop"}   # keys stay English

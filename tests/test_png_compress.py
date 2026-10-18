@@ -3,7 +3,7 @@ transparency survives."""
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-from dragshift import imaging
+from banana import imaging
 
 
 def photo_like(size=(800, 500)) -> Image.Image:

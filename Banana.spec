@@ -7,7 +7,7 @@ heif_datas, heif_bins, heif_hidden = collect_all("pillow_heif")
 
 a = Analysis(
     ["run.py"],
-    datas=[("dragshift/assets", "dragshift/assets")] + heif_datas,
+    datas=[("banana/assets", "banana/assets"), ("LICENSE", ".")] + heif_datas,   # MIT: ship the notice
     binaries=heif_bins,
     hiddenimports=["win32com.client", "PySide6.QtNetwork", "AppKit", "Quartz", "objc"] + heif_hidden,
     excludes=["tkinter", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.QtQml",
@@ -28,26 +28,26 @@ a.datas = [d for d in a.datas if "translations" not in d[0].replace("\\", "/")]
 pyz = PYZ(a.pure)
 import sys
 IS_MAC = sys.platform == "darwin"
-common = dict(name="DragShift", console=False, upx=False)
+common = dict(name="Banana", console=False, upx=False)
 IS_LINUX = sys.platform.startswith("linux")
 if IS_MAC:
-    common.update(icon="dragshift/assets/dragshift.icns")
+    common.update(icon="banana/assets/banana.icns")
 elif IS_LINUX:
-    common.update(name="dragshift")       # icon comes from the .desktop file / hicolor theme
+    common.update(name="banana")       # icon comes from the .desktop file / hicolor theme
 else:
-    common.update(icon="dragshift/assets/dragshift.ico", version="installer/version_info.txt")
+    common.update(icon="banana/assets/banana.ico", version="installer/version_info.txt")
 
 if IS_MAC:
     exe = EXE(pyz, a.scripts, [], exclude_binaries=True, argv_emulation=False, **common)
-    coll = COLLECT(exe, a.binaries, a.datas, name="DragShift", upx=False)
+    coll = COLLECT(exe, a.binaries, a.datas, name="Banana", upx=False)
     app = BUNDLE(
         coll,
-        name="DragShift.app",
-        icon="dragshift/assets/dragshift.icns",
-        bundle_identifier="com.dragshift.app",
+        name="Banana.app",
+        icon="banana/assets/banana.icns",
+        bundle_identifier="com.marvainstein.banana",
         info_plist={
-            "CFBundleName": "DragShift",
-            "CFBundleDisplayName": "DragShift",
+            "CFBundleName": "Banana",
+            "CFBundleDisplayName": "Banana",
             "CFBundleShortVersionString": "1.1.0",
             "CFBundleVersion": "1.1.0",
             "LSUIElement": True,                 # menu-bar app, no Dock icon
@@ -65,9 +65,9 @@ if IS_MAC:
     )
 elif IS_LINUX:
     exe = EXE(pyz, a.scripts, [], exclude_binaries=True, **common)
-    coll = COLLECT(exe, a.binaries, a.datas, name="dragshift", upx=False)  # no strip: breaks OpenBLAS with Debian 12 binutils
+    coll = COLLECT(exe, a.binaries, a.datas, name="banana", upx=False)  # no strip: breaks OpenBLAS with Debian 12 binutils
 elif onefile:
     exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], **common)
 else:
     exe = EXE(pyz, a.scripts, [], exclude_binaries=True, **common)
-    coll = COLLECT(exe, a.binaries, a.datas, name="DragShift", upx=False)
+    coll = COLLECT(exe, a.binaries, a.datas, name="Banana", upx=False)

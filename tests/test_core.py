@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 
-from dragshift import convert, imaging
-from dragshift.util import category, sibling
+from banana import convert, imaging
+from banana.util import category, sibling
 
 
 @pytest.fixture
@@ -13,7 +13,7 @@ def img(tmp_path) -> Path:
     im = Image.new("RGBA", (640, 420), (255, 255, 255, 0))
     d = ImageDraw.Draw(im)
     d.rectangle((40, 40, 600, 380), fill=(255, 120, 80, 255))
-    d.text((60, 60), "DragShift test", fill=(0, 0, 0, 255))
+    d.text((60, 60), "Banana test", fill=(0, 0, 0, 255))
     p = tmp_path / "Page 001.png"
     exif = Image.Exif()
     exif[0x010F] = "TestCam"  # Make

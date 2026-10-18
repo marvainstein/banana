@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 
-from dragshift import convert, imaging, liquid, report
-from dragshift.util import CONFIG, UserError
+from banana import convert, imaging, liquid, report
+from banana.util import CONFIG, UserError
 
 
 def photo(tmp_path, name="Photo.jpg", size=(2400, 1600), gps=True) -> Path:
@@ -103,7 +103,7 @@ def test_output_folder_setting(tmp_path):
     CONFIG["output"] = "folder"
     try:
         out = convert.convert(p, "image", "PNG")[0]
-        assert out.parent.name == "DragShift"
+        assert out.parent.name == "Banana"
     finally:
         CONFIG["output"] = "next"
 

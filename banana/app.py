@@ -1,4 +1,4 @@
-"""DragShift: Shift+drag any file to convert or edit it from a radial liquid-glass menu."""
+"""Banana: Shift+drag any file to convert or edit it from a radial liquid-glass menu."""
 from __future__ import annotations
 
 import json
@@ -8,8 +8,8 @@ import time
 import traceback
 from pathlib import Path
 
-from PySide6.QtCore import QDir, QObject, QPointF, QRunnable, Qt, QThreadPool, QTimer, QUrl, Signal
-from PySide6.QtGui import (QAction, QColor, QCursor, QDesktopServices, QGuiApplication, QIcon, QPainter,
+from PySide6.QtCore import QDir, QObject, QPointF, QRunnable, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtGui import (QAction, QColor, QCursor, QGuiApplication, QIcon, QPainter,
                            QPixmap)
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QFileDialog, QMenu, QSystemTrayIcon, QWidget
@@ -19,11 +19,10 @@ from .i18n import tr
 from .radial import Item, RadialMenu
 from .settings import Settings, SettingsWindow, WelcomeWindow, TRIGGERS
 from .toasts import ToastStack
-from .trigger import DragShiftWatcher
+from .trigger import BananaWatcher
 from .util import UserError, category, file_size, human_size, keep, release
 
-APP_NAME = "DragShift"
-TIP_URL = "https://cash.app/$AtikaKadesha"
+APP_NAME = "Banana"
 VERSION = __version__
 IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
@@ -79,7 +78,7 @@ def friendly_error(e: Exception) -> str:
     if isinstance(e, PermissionError) or "permission denied" in low:
         return tr("No permission to write next to this file. Try a folder you own, or set Settings → Save results → subfolder.")
     if "cannot identify image" in low:
-        return tr("This file doesn't look like an image DragShift can read.")
+        return tr("This file doesn't look like an image Banana can read.")
     if isinstance(e, FileNotFoundError):
         return tr("The file was moved or deleted.")
     return msg
@@ -114,7 +113,7 @@ def make_tray_icon() -> QIcon:
 
 
 def make_icon() -> QIcon:
-    ico = Path(__file__).with_name("assets") / "dragshift.ico"
+    ico = Path(__file__).with_name("assets") / "banana.ico"
     if ico.exists():
         return QIcon(str(ico))
     pm = QPixmap(64, 64)
@@ -128,7 +127,7 @@ def make_icon() -> QIcon:
 
 
 # ---------------------------------------------------------------- the app
-class DragShiftApp(QObject):
+class BananaApp(QObject):
     def __init__(self, qapp: QApplication):
         super().__init__()
         self.qapp = qapp
@@ -142,7 +141,7 @@ class DragShiftApp(QObject):
 
         # the watcher only manages menus it opened (drag mode); click-mode menus (tray, right-click,
         # Send To) must not be closed just because no mouse button is held
-        self.watcher = DragShiftWatcher(lambda: self.menu.isVisible() and not self.menu.click_mode,
+        self.watcher = BananaWatcher(lambda: self.menu.isVisible() and not self.menu.click_mode,
                                         lambda: self.menu.got_drag, self)
         self.watcher.set_key(self.settings.get("trigger"))
         self.watcher.show_menu.connect(lambda pos: self.menu.popup(pos))
@@ -175,7 +174,6 @@ class DragShiftApp(QObject):
         m.addSeparator()
         m.addAction(tr("Settings…"), self.open_settings)
         m.addAction(tr("How to use"), self.show_welcome)
-        m.addAction(tr("Tip the developer ♥"), lambda: QDesktopServices.openUrl(QUrl(TIP_URL)))
         m.addSeparator()
         m.addAction(tr("Quit {app}", app=APP_NAME), self.qapp.quit)
         old, self.tray_menu = getattr(self, "tray_menu", None), m
@@ -211,7 +209,7 @@ class DragShiftApp(QObject):
             if files:
                 self.queue_files(files)
             elif data.get("show"):
-                self.toasts.info(tr("DragShift is already running"),
+                self.toasts.info(tr("Banana is already running"),
                                  tr("Drag any file and press {key}. It lives in the tray.", key=self.trigger_label()))
             sock.disconnectFromServer()
             sock.deleteLater()
@@ -355,7 +353,7 @@ class DragShiftApp(QObject):
             self.open_dialog()
 
     def open_dialog(self):
-        files, _ = QFileDialog.getOpenFileNames(None, tr("Choose file(s) for DragShift"), QDir.homePath())
+        files, _ = QFileDialog.getOpenFileNames(None, tr("Choose file(s) for Banana"), QDir.homePath())
         if files:
             self.show_click_menu(files)
 
@@ -386,7 +384,7 @@ class DragShiftApp(QObject):
         self.open_window(WelcomeWindow(self.settings, self.trigger_label()))
 
 
-class DragShiftQApplication(QApplication):
+class BananaQApplication(QApplication):
     """macOS delivers files from Finder's "Open With", the Dock and `open -a` as FileOpen
     events (not argv)."""
     file_opened = Signal(str)
@@ -430,18 +428,18 @@ def send_to_running(payload: dict) -> bool:
 
 
 def setup_logging():
-    """Errors go to %LOCALAPPDATA%\\DragShift\\log.txt (pythonw / the .exe have no console)."""
+    """Errors go to %LOCALAPPDATA%\\Banana\\log.txt (pythonw / the .exe have no console)."""
     import faulthandler
     if IS_MAC:
-        base = Path.home() / "Library" / "Logs" / "DragShift"
+        base = Path.home() / "Library" / "Logs" / "Banana"
     else:
-        base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".local" / "share") / "DragShift"
+        base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".local" / "share") / "Banana"
     base.mkdir(parents=True, exist_ok=True)
     path = base / "log.txt"
     if path.exists() and path.stat().st_size > 1_000_000:
         path.replace(base / "log.old.txt")
     f = open(path, "a", encoding="utf-8", buffering=1)
-    f.write(f"\n==== DragShift {VERSION} started {time.strftime('%Y-%m-%d %H:%M:%S')} ====\n")
+    f.write(f"\n==== Banana {VERSION} started {time.strftime('%Y-%m-%d %H:%M:%S')} ====\n")
     if sys.stderr is None or getattr(sys, "frozen", False) or sys.executable.lower().endswith("pythonw.exe"):
         sys.stdout = sys.stderr = f
     faulthandler.enable(f)
@@ -461,11 +459,11 @@ def main(argv: list[str] | None = None) -> int:
     if IS_WIN:
         try:  # crisp taskbar/tray icon grouping
             import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("DragShift.App")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Banana.App")
         except Exception:
             pass
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
-    qapp = DragShiftQApplication(argv)
+    qapp = BananaQApplication(argv)
     if IS_MAC:
         mac_setup(qapp)
     qapp.setApplicationName(APP_NAME)
@@ -479,17 +477,17 @@ def main(argv: list[str] | None = None) -> int:
     # already running? hand over and exit (instant: no second UI start-up)
     if send_to_running({"files": files} if files else {"show": "--quiet" not in argv}):
         return 0
-    app = DragShiftApp(qapp)
+    app = BananaApp(qapp)
     qapp.file_opened.connect(lambda f: app.queue_files([f]))
     if qapp.early_files:
         app.queue_files(list(qapp.early_files))
-    if files:  # e.g. "Send to → DragShift" or drag onto the .exe
+    if files:  # e.g. "Send to → Banana" or drag onto the .exe
         QTimer.singleShot(120, lambda: app.queue_files(files))
     elif not app.settings.get("welcomed"):
         QTimer.singleShot(300, app.show_welcome)
     elif "--quiet" not in argv:
         QTimer.singleShot(400, lambda: app.toasts.info(
-            tr("DragShift is running"), tr("Drag any file, then press {key}.", key=app.trigger_label())))
+            tr("Banana is running"), tr("Drag any file, then press {key}.", key=app.trigger_label())))
     return qapp.exec()
 
 

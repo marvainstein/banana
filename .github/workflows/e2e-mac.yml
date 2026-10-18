@@ -30,12 +30,12 @@ jobs:
         run: |
           curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/install-mac.sh" | bash
           sleep 6
-          pgrep -x DragShift && echo "DragShift is running"
-          if xattr -p com.apple.quarantine /Applications/DragShift.app 2>/dev/null; then
+          pgrep -x Banana && echo "Banana is running"
+          if xattr -p com.apple.quarantine /Applications/Banana.app 2>/dev/null; then
             echo "::error::app is quarantined"; exit 1
           fi
-          spctl --assess --type execute /Applications/DragShift.app 2>&1 || true   # informational
-          pkill -x DragShift || true
+          spctl --assess --type execute /Applications/Banana.app 2>&1 || true   # informational
+          pkill -x Banana || true
           echo "installer OK"
 
       - name: Run end-to-end scenarios on the Finder desktop

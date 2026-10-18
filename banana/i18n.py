@@ -98,17 +98,16 @@ ES = {
     "No permission to write next to this file. Try a folder you own, or set Settings → Save results → subfolder.":
         "No hay permiso para escribir junto a este archivo. Probá con una carpeta tuya, o elegí "
         "Ajustes → Guardar resultados → subcarpeta.",
-    "This file doesn't look like an image DragShift can read.":
-        "Este archivo no parece una imagen que DragShift pueda leer.",
+    "This file doesn't look like an image Banana can read.":
+        "Este archivo no parece una imagen que Banana pueda leer.",
     "The file was moved or deleted.": "El archivo se movió o se borró.",
     "{app} — press {key} while dragging a file": "{app}: apretá {key} mientras arrastrás un archivo",
     "Enabled": "Activado",
     "Open a file…": "Abrir un archivo…",
     "Settings…": "Ajustes…",
     "How to use": "Cómo se usa",
-    "Tip the developer ♥": "Dejale una propina al autor ♥",
     "Quit {app}": "Salir de {app}",
-    "DragShift is already running": "DragShift ya está abierto",
+    "Banana is already running": "Banana ya está abierto",
     "Drag any file and press {key}. It lives in the tray.":
         "Arrastrá cualquier archivo y apretá {key}. Está en la barra de menús.",
     "Combining {n} images…": "Combinando {n} imágenes…",
@@ -121,8 +120,8 @@ ES = {
     "Couldn't open {name}": "No se pudo abrir {name}",
     "Working…": "Procesando…",
     "Couldn't finish": "No se pudo terminar",
-    "Choose file(s) for DragShift": "Elegí archivos para DragShift",
-    "DragShift is running": "DragShift está abierto",
+    "Choose file(s) for Banana": "Elegí archivos para Banana",
+    "Banana is running": "Banana está abierto",
     "Drag any file, then press {key}.": "Arrastrá cualquier archivo y apretá {key}.",
     "Undone": "Deshecho",
     "Moved {n} file to the {bin}": "Se movió {n} archivo a la {bin}",
@@ -347,20 +346,21 @@ ES = {
     "…pressed while you’re dragging a file": "…apretado mientras arrastrás un archivo",
     "Save results": "Guardar resultados",
     "Next to the original": "Junto al original",
-    "In a “DragShift” subfolder": "En una subcarpeta “DragShift”",
+    "In a “Banana” subfolder": "En una subcarpeta “Banana”",
     "JPG / WebP quality": "Calidad JPG / WebP",
     "PDF → image resolution": "Resolución PDF → imagen",
     "150 dpi · small": "150 dpi · liviano",
     "200 dpi · balanced": "200 dpi · equilibrado",
     "300 dpi · print": "300 dpi · imprenta",
-    "Start DragShift with Windows": "Iniciar DragShift con Windows",
-    "Open DragShift at login": "Abrir DragShift al iniciar sesión",
+    "Start Banana with Windows": "Iniciar Banana con Windows",
+    "Open Banana at login": "Abrir Banana al iniciar sesión",
     "Enable full liquid glass…": "Activar el vidrio líquido completo…",
     "Lets the glass refract the windows behind it (Screen Recording permission)":
         "Permite que el vidrio refracte las ventanas de atrás (permiso de Grabación de pantalla)",
-    "DragShift {v}  ·  originals are never modified": "DragShift {v}  ·  los originales nunca se modifican",
+    "Banana {v}  ·  originals are never modified": "Banana {v}  ·  los originales nunca se modifican",
+    "Based on DragShift · MIT License": "Basado en DragShift · licencia MIT",
     "Done": "Listo",
-    "Welcome to DragShift": "Bienvenido a DragShift",
+    "Welcome to Banana": "Bienvenido a Banana",
     "Start dragging any file": "Empezá a arrastrar cualquier archivo",
     "in Finder or on the desktop": "en el Finder o en el escritorio",
     "in your file manager (Thunar, Nautilus…)": "en tu gestor de archivos (Thunar, Nautilus…)",
@@ -371,13 +371,13 @@ ES = {
     "the result is saved next to the original": "el resultado se guarda junto al original",
     "Tap {key} again": "Volvé a apretar {key}",
     "to switch between Convert and Tools": "para cambiar entre Convertir y Herramientas",
-    "Optional: allow Screen Recording so the glass can refract the windows behind it (otherwise it shows your wallpaper). DragShift never saves or sends it.":
+    "Optional: allow Screen Recording so the glass can refract the windows behind it (otherwise it shows your wallpaper). Banana never saves or sends it.":
         "Opcional: permití la Grabación de pantalla para que el vidrio refracte las ventanas de atrás "
-        "(si no, muestra tu fondo de pantalla). DragShift nunca la guarda ni la envía.",
+        "(si no, muestra tu fondo de pantalla). Banana nunca la guarda ni la envía.",
     "Allow Screen Recording…": "Permitir Grabación de pantalla…",
-    "You're on a Wayland session: the Shift-while-dragging trigger needs X11 (e.g. XFCE). Right-click a file → Open With → DragShift still works.":
+    "You're on a Wayland session: the Shift-while-dragging trigger needs X11 (e.g. XFCE). Right-click a file → Open With → Banana still works.":
         "Estás en una sesión Wayland: el atajo de Shift al arrastrar necesita X11 (por ejemplo XFCE). "
-        "Clic derecho en un archivo → Abrir con → DragShift sigue funcionando.",
+        "Clic derecho en un archivo → Abrir con → Banana sigue funcionando.",
     "Start with Windows": "Iniciar con Windows",
     "Open at login": "Abrir al iniciar sesión",
     "Got it": "Entendido",

@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=DragShift
+Name=Banana
 GenericName=File converter
 Comment=Convert and edit files: start dragging a file and press Shift
-Exec=dragshift %F
-Icon=dragshift
+Exec=banana %F
+Icon=banana
 Terminal=false
 Categories=Utility;Graphics;Office;
 Keywords=convert;compress;resize;pdf;heic;webp;image;

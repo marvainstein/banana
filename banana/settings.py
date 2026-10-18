@@ -15,7 +15,8 @@ from .window import GlassWindow
 IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
-APP = "DragShift"
+APP = "Banana"
+LEGACY_APP = "DragShift"   # the app this fork comes from: its saved settings are carried over
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 DEFAULTS = {
@@ -31,6 +32,12 @@ DEFAULTS = {
 class Settings:
     def __init__(self):
         self.q = QSettings(APP, APP)
+        # only our own keys: on macOS allKeys() also lists the system-wide preferences
+        if not any(self.q.contains(k) for k in DEFAULTS):
+            old = QSettings(LEGACY_APP, LEGACY_APP)
+            for k in DEFAULTS:
+                if old.contains(k):
+                    self.q.setValue(k, old.value(k))
 
     def get(self, key):
         v = self.q.value(key, DEFAULTS[key])
@@ -58,7 +65,7 @@ class Settings:
 def launch_command() -> str:
     if getattr(sys, "frozen", False):
         return f'"{sys.executable}" --quiet'
-    return f'"{sys.executable}" -m dragshift --quiet'
+    return f'"{sys.executable}" -m banana --quiet'
 
 
 def autostart_enabled() -> bool:
@@ -103,7 +110,7 @@ def set_autostart(on: bool):
 
 TRIGGERS = ([("shift", "Shift ⇧"), ("ctrl", "Control ⌃"), ("alt", "Option ⌥")] if IS_MAC
             else [("shift", "Shift"), ("ctrl", "Ctrl"), ("alt", "Alt")])
-OUTPUTS = [("next", "Next to the original"), ("folder", "In a “DragShift” subfolder")]
+OUTPUTS = [("next", "Next to the original"), ("folder", "In a “Banana” subfolder")]
 DPIS = [(150, "150 dpi · small"), (200, "200 dpi · balanced"), (300, "300 dpi · print")]
 
 
@@ -170,7 +177,7 @@ class SettingsWindow(GlassWindow):
         r += 1
 
         if IS_WIN or IS_MAC or IS_LINUX:
-            self.auto = QCheckBox(tr("Start DragShift with Windows") if IS_WIN else tr("Open DragShift at login"))
+            self.auto = QCheckBox(tr("Start Banana with Windows") if IS_WIN else tr("Open Banana at login"))
             self.auto.setChecked(autostart_enabled())
             self.auto.toggled.connect(set_autostart)
             grid.addWidget(self.auto, r, 1)
@@ -185,7 +192,8 @@ class SettingsWindow(GlassWindow):
                 r += 1
         self.body.addLayout(grid)
         self.body.addStretch(1)
-        about = QLabel(tr("DragShift {v}  ·  originals are never modified", v=__version__))
+        about = QLabel(tr("Banana {v}  ·  originals are never modified", v=__version__) + "\n" +
+                       tr("Based on DragShift · MIT License"))
         about.setObjectName("dim")
         foot = QHBoxLayout()
         foot.addWidget(about)
@@ -207,7 +215,7 @@ class SettingsWindow(GlassWindow):
 
 class WelcomeWindow(GlassWindow):
     def __init__(self, settings: Settings, trigger_label: str = "Shift"):
-        super().__init__(tr("Welcome to DragShift"), size=(560, 430))
+        super().__init__(tr("Welcome to Banana"), size=(560, 430))
         self.s = settings
         steps = [
             ("1", tr("Start dragging any file"), tr("in Finder or on the desktop") if IS_MAC else
@@ -240,7 +248,7 @@ class WelcomeWindow(GlassWindow):
             from . import platform_mac
             if not platform_mac.has_screen_recording():
                 note = QLabel(tr("Optional: allow Screen Recording so the glass can refract the windows "
-                                 "behind it (otherwise it shows your wallpaper). DragShift never saves or sends it."))
+                                 "behind it (otherwise it shows your wallpaper). Banana never saves or sends it."))
                 note.setObjectName("dim")
                 note.setWordWrap(True)
                 self.body.addWidget(note)
@@ -251,7 +259,7 @@ class WelcomeWindow(GlassWindow):
             from . import platform_linux
             if platform_linux.is_wayland():
                 note = QLabel(tr("You're on a Wayland session: the Shift-while-dragging trigger needs X11 (e.g. XFCE). "
-                                 "Right-click a file → Open With → DragShift still works."))
+                                 "Right-click a file → Open With → Banana still works."))
                 note.setObjectName("warn")
                 note.setWordWrap(True)
                 self.body.addWidget(note)

@@ -17,6 +17,7 @@ from PySide6.QtGui import (QColor, QCursor, QFont, QGuiApplication, QImage, QPai
 from PySide6.QtWidgets import QWidget
 
 from . import glass
+from .i18n import tr
 
 
 @dataclass
@@ -191,7 +192,7 @@ class RadialMenu(QWidget):
             self._load(paths)
         else:
             self.paths, self.rings, self.ring_names = [], {}, []
-            self.hub_text = "Drop here"
+            self.hub_text = tr("Drop here")
             for n in (4, 7):  # most common rings: render speculatively
                 self._render(n)
         self._t = 0.0

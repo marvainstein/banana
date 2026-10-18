@@ -9,6 +9,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOp
 from PIL.ExifTags import GPSTAGS, TAGS
 
 from .convert import atomic_save, fitz, flatten, open_image, open_pdf, save_image
+from .i18n import file_label, tr
 from .util import sibling
 
 EXT_TARGET = {".jpg": "JPG", ".jpeg": "JPG", ".png": "PNG", ".webp": "WEBP", ".tif": "TIFF",
@@ -83,13 +84,13 @@ def compress_image(src: str | Path, quality: int = 72, max_side: int | None = No
     if max_side and max(im.size) > max_side:
         im.thumbnail((max_side, max_side), Image.LANCZOS)
     ext = ".webp" if to_webp else Path(src).suffix.lower()
-    out = sibling(src, "Compressed", ext)
+    out = sibling(src, file_label("Compressed"), ext)
     tgt = target_for(out)
     if tgt == "PNG":
         q = quantize_png(im, quality)
         atomic_save(lambda dst: q.save(dst, "PNG", optimize=True), out)
     elif tgt in ("BMP", "TIFF", "GIF", "ICO"):
-        out = sibling(src, "Compressed", ".jpg")
+        out = sibling(src, file_label("Compressed"), ".jpg")
         save_image(im, out, "JPG", quality=quality)
     else:
         save_image(im, out, tgt, quality=quality)
@@ -97,7 +98,7 @@ def compress_image(src: str | Path, quality: int = 72, max_side: int | None = No
 
 
 def compress_pdf(src: str | Path, image_dpi: int = 150, quality: int = 70) -> Path:
-    out = sibling(src, "Compressed", ".pdf")
+    out = sibling(src, file_label("Compressed"), ".pdf")
     with open_pdf(src) as doc:
         try:
             doc.rewrite_images(dpi_threshold=image_dpi + 10, dpi_target=image_dpi,
@@ -155,7 +156,7 @@ def compress_to(src: str | Path, quality: int, max_side: int | None, target: str
     im = open_image(src)
     if max_side and max(im.size) > max_side:
         im.thumbnail((max_side, max_side), Image.LANCZOS)
-    out = sibling(src, "Compressed", "." + ("jpg" if target == "JPG" else target.lower()))
+    out = sibling(src, file_label("Compressed"), "." + ("jpg" if target == "JPG" else target.lower()))
     if target == "PNG":
         q = quantize_png(im, quality)
         atomic_save(lambda dst: q.save(dst, "PNG", optimize=True), out)
@@ -289,7 +290,7 @@ def strip_location(src: str | Path) -> Path:
             del exif[0x8825]
         exif_bytes = exif.tobytes()
     im = open_image(src)
-    out = sibling(src, "No Location", Path(src).suffix.lower() if Path(src).suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff") else ".jpg")
+    out = sibling(src, file_label("No Location"), Path(src).suffix.lower() if Path(src).suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff") else ".jpg")
     # orientation already baked in by open_image → reset tag to 1
     ex = Image.Exif()
     ex.load(exif_bytes)
@@ -302,7 +303,7 @@ def strip_image_metadata(src: str | Path) -> Path:
     im = open_image(src)  # exif_transpose applied, so orientation is baked in
     clean = Image.new(im.mode, im.size)
     clean.paste(im)
-    return save_like(clean, src, "Clean")
+    return save_like(clean, src, file_label("Clean"))
 
 
 def read_pdf_metadata(src: str | Path) -> dict[str, str]:
@@ -315,7 +316,7 @@ def read_pdf_metadata(src: str | Path) -> dict[str, str]:
 
 
 def strip_pdf_metadata(src: str | Path) -> Path:
-    out = sibling(src, "Clean", ".pdf")
+    out = sibling(src, file_label("Clean"), ".pdf")
     with open_pdf(src) as doc:
         doc.set_metadata({})
         try:
@@ -333,7 +334,7 @@ def split_pdf(src: str | Path) -> list[Path]:
         for i in range(doc.page_count):
             nd = fitz.open()
             nd.insert_pdf(doc, from_page=i, to_page=i)
-            out = sibling(src, f"page {i + 1}", ".pdf")
+            out = sibling(src, file_label("page {n}", n=i + 1), ".pdf")
             nd.save(out)
             nd.close()
             outs.append(out)
@@ -341,7 +342,7 @@ def split_pdf(src: str | Path) -> list[Path]:
 
 
 def merge_pdfs(srcs: list[str | Path]) -> Path:
-    out = sibling(srcs[0], "Merged", ".pdf")
+    out = sibling(srcs[0], file_label("Merged"), ".pdf")
     nd = fitz.open()
     for s in srcs:
         with open_pdf(s) as d:
@@ -352,7 +353,7 @@ def merge_pdfs(srcs: list[str | Path]) -> Path:
 
 
 def protect_pdf(src: str | Path, password: str) -> Path:
-    out = sibling(src, "Protected", ".pdf")
+    out = sibling(src, file_label("Protected"), ".pdf")
     with open_pdf(src) as doc:
         perms = int(fitz.PDF_PERM_ACCESSIBILITY | fitz.PDF_PERM_PRINT | fitz.PDF_PERM_COPY)
         doc.save(out, encryption=fitz.PDF_ENCRYPT_AES_256, owner_pw=password, user_pw=password,
@@ -362,7 +363,7 @@ def protect_pdf(src: str | Path, password: str) -> Path:
 
 def extract_pdf_images(src: str | Path) -> list[Path]:
     from .util import output_dir, unique_path
-    folder = unique_path(output_dir(src) / f"{Path(src).stem} images")
+    folder = unique_path(output_dir(src) / file_label("{name} images", name=Path(src).stem))
     outs: list[Path] = []
     seen: set[int] = set()
     with open_pdf(src) as doc:
@@ -384,15 +385,15 @@ def extract_pdf_images(src: str | Path) -> list[Path]:
                     pix = fitz.Pixmap(doc, xref)
                     if pix.n - pix.alpha >= 4:
                         pix = fitz.Pixmap(fitz.csRGB, pix)
-                    p = folder / f"page {pno + 1} image {len(outs) + 1}.png"
+                    p = folder / f"{file_label('page {p} image {i}', p=pno + 1, i=len(outs) + 1)}.png"
                     pix.save(p)
                 else:
-                    p = folder / f"page {pno + 1} image {len(outs) + 1}.{ext}"
+                    p = folder / f"{file_label('page {p} image {i}', p=pno + 1, i=len(outs) + 1)}.{ext}"
                     p.write_bytes(info["image"])
                 outs.append(p)
     if not outs:
         from .util import UserError
-        raise UserError("No images found in this PDF.")
+        raise UserError(tr("No images found in this PDF."))
     return outs
 
 
@@ -402,7 +403,7 @@ def pdf_page_count(src: str | Path) -> int:
 
 
 def rotate_pdf(src: str | Path, degrees: int = 90) -> Path:
-    out = sibling(src, "Rotated", ".pdf")
+    out = sibling(src, file_label("Rotated"), ".pdf")
     with open_pdf(src) as doc:
         for p in doc:
             p.set_rotation((p.rotation + degrees) % 360)

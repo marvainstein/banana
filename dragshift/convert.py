@@ -9,6 +9,7 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
+from .i18n import file_label, tr
 from .util import UserError, sibling
 
 try:  # HEIC / HEIF support
@@ -65,7 +66,7 @@ def open_pdf(path: str | Path):
     doc = fitz.open(path)
     if doc.needs_pass:
         doc.close()
-        raise UserError("This PDF is password-protected. Remove the password first.")
+        raise UserError(tr("This PDF is password-protected. Remove the password first."))
     return doc
 
 
@@ -131,7 +132,7 @@ def image_to(src: str | Path, target: str) -> list[Path]:
 
 def images_to_single_pdf(srcs: list[str | Path]) -> list[Path]:
     pages = [flatten(open_image(s)) for s in srcs]
-    out = sibling(srcs[0], "Combined", ".pdf")
+    out = sibling(srcs[0], file_label("Combined"), ".pdf")
     pages[0].save(out, "PDF", resolution=150.0, save_all=True, append_images=pages[1:])
     return [out]
 
@@ -147,7 +148,7 @@ def pdf_to_images(src: str | Path, target: str, dpi: int | None = None) -> list[
         for i, page in enumerate(doc):
             pix = page.get_pixmap(dpi=dpi, alpha=False)
             im = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-            label = f"page {i + 1}" if n > 1 else ""
+            label = file_label("page {n}", n=i + 1) if n > 1 else ""
             out = sibling(src, label, "." + target.lower())
             save_image(im, out, target)
             outs.append(out)

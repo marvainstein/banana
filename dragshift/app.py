@@ -15,6 +15,7 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QFileDialog, QMenu, QSystemTrayIcon, QWidget
 
 from . import __version__, convert, glass, imaging, report, tools
+from .i18n import tr
 from .radial import Item, RadialMenu
 from .settings import Settings, SettingsWindow, WelcomeWindow, TRIGGERS
 from .toasts import ToastStack
@@ -76,11 +77,11 @@ def friendly_error(e: Exception) -> str:
     msg = str(e) or e.__class__.__name__
     low = msg.lower()
     if isinstance(e, PermissionError) or "permission denied" in low:
-        return "No permission to write next to this file. Try a folder you own, or set Settings → Save results → subfolder."
+        return tr("No permission to write next to this file. Try a folder you own, or set Settings → Save results → subfolder.")
     if "cannot identify image" in low:
-        return "This file doesn't look like an image DragShift can read."
+        return tr("This file doesn't look like an image DragShift can read.")
     if isinstance(e, FileNotFoundError):
-        return "The file was moved or deleted."
+        return tr("The file was moved or deleted.")
     return msg
 
 
@@ -158,23 +159,29 @@ class DragShiftApp(QObject):
         self.server.newConnection.connect(self._ipc)
 
         self.tray = QSystemTrayIcon(make_tray_icon(), self)
-        self.tray.setToolTip(f"{APP_NAME} — press {self.trigger_label()} while dragging a file")
-        m = QMenu()
-        m.setStyleSheet(glass.QSS)
-        self.act_enabled = QAction("Enabled", m, checkable=True, checked=True)
-        self.act_enabled.toggled.connect(lambda on: setattr(self.watcher, "enabled", on))
-        m.addAction(self.act_enabled)
-        m.addAction("Open a file…", self.open_dialog)
-        m.addSeparator()
-        m.addAction("Settings…", self.open_settings)
-        m.addAction("How to use", self.show_welcome)
-        m.addAction("Tip the developer ♥", lambda: QDesktopServices.openUrl(QUrl(TIP_URL)))
-        m.addSeparator()
-        m.addAction(f"Quit {APP_NAME}", self.qapp.quit)
-        self.tray_menu = m
-        self.tray.setContextMenu(m)
+        self._build_tray_menu()
         self.tray.activated.connect(self._tray_click)
         self.tray.show()
+
+    def _build_tray_menu(self):
+        """(Re)built on start-up and whenever the language changes."""
+        self.tray.setToolTip(tr("{app} — press {key} while dragging a file", app=APP_NAME, key=self.trigger_label()))
+        m = QMenu()
+        m.setStyleSheet(glass.QSS)
+        self.act_enabled = QAction(tr("Enabled"), m, checkable=True, checked=self.watcher.enabled)
+        self.act_enabled.toggled.connect(lambda on: setattr(self.watcher, "enabled", on))
+        m.addAction(self.act_enabled)
+        m.addAction(tr("Open a file…"), self.open_dialog)
+        m.addSeparator()
+        m.addAction(tr("Settings…"), self.open_settings)
+        m.addAction(tr("How to use"), self.show_welcome)
+        m.addAction(tr("Tip the developer ♥"), lambda: QDesktopServices.openUrl(QUrl(TIP_URL)))
+        m.addSeparator()
+        m.addAction(tr("Quit {app}", app=APP_NAME), self.qapp.quit)
+        old, self.tray_menu = getattr(self, "tray_menu", None), m
+        self.tray.setContextMenu(m)
+        if old is not None:
+            old.deleteLater()
 
     def trigger_label(self) -> str:
         return dict(TRIGGERS).get(self.settings.get("trigger"), "Shift")
@@ -204,8 +211,8 @@ class DragShiftApp(QObject):
             if files:
                 self.queue_files(files)
             elif data.get("show"):
-                self.toasts.info("DragShift is already running",
-                                 f"Drag any file and press {self.trigger_label()}. It lives in the tray.")
+                self.toasts.info(tr("DragShift is already running"),
+                                 tr("Drag any file and press {key}. It lives in the tray.", key=self.trigger_label()))
             sock.disconnectFromServer()
             sock.deleteLater()
 
@@ -230,27 +237,27 @@ class DragShiftApp(QObject):
     # ------------------------------------------------------------ menu contents
     def describe(self, paths: list[str]) -> str:
         if len(paths) > 1:
-            return f"{len(paths)} files"
+            return tr("{n} files", n=len(paths))
         return human_size(file_size(paths[0]))
 
     def build_rings(self, paths: list[str]) -> dict[str, list[Item]]:
         cat = category(paths[0])
         if cat is None:
-            return {"Unsupported": []}
+            return {tr("Unsupported"): []}
         ext = Path(paths[0]).suffix
         same = [p for p in paths if category(p) == cat]
         convert_items = []
         for t in convert.targets_for(cat, ext):
-            hint = FORMAT_HINTS.get(t, "")
+            hint = tr(FORMAT_HINTS.get(t, ""))
             if cat == "image" and t == "PDF" and len(same) > 1:
-                hint = f"{len(same)} images → 1 PDF"
+                hint = tr("{n} images → 1 PDF", n=len(same))
             convert_items.append(Item(t, key=f"convert:{t}", hint=hint))
-        rings: dict[str, list[Item]] = {"Convert": convert_items}
+        rings: dict[str, list[Item]] = {tr("Convert"): convert_items}
         if cat == "image":
-            rings["Tools"] = [Item(n, GLYPHS[n], key=f"tool:{n}", hint=HINTS[n]) for n in IMAGE_TOOLS]
+            rings[tr("Tools")] = [Item(tr(n), GLYPHS[n], key=f"tool:{n}", hint=tr(HINTS[n])) for n in IMAGE_TOOLS]
         elif cat == "pdf":
             names = PDF_TOOLS[:3] + (["Merge"] if len(same) > 1 else []) + PDF_TOOLS[3:]
-            rings["Tools"] = [Item(n, GLYPHS[n], key=f"tool:{n}", hint=HINTS[n]) for n in names]
+            rings[tr("Tools")] = [Item(tr(n), GLYPHS[n], key=f"tool:{n}", hint=tr(HINTS[n])) for n in names]
         return rings
 
     # ------------------------------------------------------------ actions
@@ -261,15 +268,15 @@ class DragShiftApp(QObject):
         if kind == "convert":
             if cat == "image" and name == "PDF" and len(paths) > 1:
                 self.submit(f"convert:{name}", paths, lambda: convert.images_to_single_pdf(paths),
-                            f"Combining {len(paths)} images…")
+                            tr("Combining {n} images…", n=len(paths)))
             else:
-                verb = f"Converting to {name}…"
+                verb = tr("Converting to {fmt}…", fmt=name)
                 self.submit(f"convert:{name}", paths,
                             lambda: [o for p in paths for o in convert.convert(p, cat, name)], verb)
             return
         if cat == "pdf":
             if name == "Merge":
-                self.submit("tool:Merge", paths, lambda: [imaging.merge_pdfs(paths)], "Merging…")
+                self.submit("tool:Merge", paths, lambda: [imaging.merge_pdfs(paths)], tr("Merging…"))
             elif name == "Metadata":
                 self.open_window(tools.MetadataWindow(paths[0], self.notify, is_pdf=True))
             elif name == "Protect":
@@ -279,8 +286,8 @@ class DragShiftApp(QObject):
                        "Rotate": lambda p: [imaging.rotate_pdf(p)], "Extract": imaging.extract_pdf_images}
                 f = fns[name]
                 self.submit(f"tool:{name}", paths, lambda: [o for p in paths for o in f(p)],
-                            {"Compress": "Compressing…", "Split": "Splitting…", "Rotate": "Rotating…",
-                             "Extract": "Extracting images…"}[name])
+                            tr({"Compress": "Compressing…", "Split": "Splitting…", "Rotate": "Rotating…",
+                                "Extract": "Extracting images…"}[name]))
             return
         windows = {"Crop": tools.CropWindow, "Add BG": tools.AddBgWindow, "Annotate": tools.AnnotateWindow,
                    "Redact": tools.RedactWindow, "Edit": tools.EditWindow, "Metadata": tools.MetadataWindow}
@@ -292,10 +299,10 @@ class DragShiftApp(QObject):
             else:
                 self.open_window(windows[name](paths[0], self.notify))
         except UserError as e:
-            self.toasts.error(f"Couldn't open {name}", str(e))
+            self.toasts.error(tr("Couldn't open {name}", name=tr(name)), str(e))
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
-            self.toasts.error(f"Couldn't open {name}", friendly_error(e))
+            self.toasts.error(tr("Couldn't open {name}", name=tr(name)), friendly_error(e))
 
     def open_window(self, w: QWidget):
         if hasattr(w, "submit"):
@@ -307,10 +314,11 @@ class DragShiftApp(QObject):
         else:
             w.show()
 
-    def submit(self, action: str, srcs: list, fn, working: str = "Working…", extra: str = ""):
+    def submit(self, action: str, srcs: list, fn, working: str | None = None, extra: str = ""):
         """Run in the background. A spinner card appears only if it takes > 150 ms."""
+        working = working or tr("Working…")
         state = {"card": None, "finished": False}
-        names = Path(srcs[0]).name if len(srcs) == 1 else f"{len(srcs)} files"
+        names = Path(srcs[0]).name if len(srcs) == 1 else tr("{n} files", n=len(srcs))
 
         def show_spinner():
             if not state["finished"]:
@@ -330,7 +338,7 @@ class DragShiftApp(QObject):
             release(job)
             state["finished"] = True
             card = state["card"] or self.toasts.new()
-            card.error("Couldn't finish", msg)
+            card.error(tr("Couldn't finish"), msg)
 
         job.sig.done.connect(done)
         job.sig.failed.connect(failed)
@@ -347,7 +355,7 @@ class DragShiftApp(QObject):
             self.open_dialog()
 
     def open_dialog(self):
-        files, _ = QFileDialog.getOpenFileNames(None, "Choose file(s) for DragShift", QDir.homePath())
+        files, _ = QFileDialog.getOpenFileNames(None, tr("Choose file(s) for DragShift"), QDir.homePath())
         if files:
             self.show_click_menu(files)
 
@@ -360,11 +368,19 @@ class DragShiftApp(QObject):
     def open_settings(self):
         w = SettingsWindow(self.settings)
         w.changed.connect(self._settings_changed)
+        w.language_changed.connect(lambda: self._language_changed(w))
         self.open_window(w)
 
     def _settings_changed(self):
         self.watcher.set_key(self.settings.get("trigger"))
-        self.tray.setToolTip(f"{APP_NAME} — press {self.trigger_label()} while dragging a file")
+        self._build_tray_menu()
+
+    def _language_changed(self, w: QWidget):
+        """Windows build their text when they open: reopen Settings in the new language."""
+        pos = w.pos()
+        w.close()
+        self.open_settings()
+        self.windows[-1].move(pos)
 
     def show_welcome(self):
         self.open_window(WelcomeWindow(self.settings, self.trigger_label()))
@@ -473,7 +489,7 @@ def main(argv: list[str] | None = None) -> int:
         QTimer.singleShot(300, app.show_welcome)
     elif "--quiet" not in argv:
         QTimer.singleShot(400, lambda: app.toasts.info(
-            "DragShift is running", f"Drag any file, then press {app.trigger_label()}."))
+            tr("DragShift is running"), tr("Drag any file, then press {key}.", key=app.trigger_label())))
     return qapp.exec()
 
 

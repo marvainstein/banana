@@ -1110,6 +1110,16 @@ class CompressWindow(ToolWindow):
         with Image.open(self.path) as im:
             self.full_px = im.width * im.height
             self.full_long = max(im.size)
+        self._box = self._detail_box(self.pv)
+        # a palette PNG blotches photos: offer WebP up front, and dither if they stay PNG
+        self.photo = imaging.looks_like_photo(self.pv)
+        suggest_webp = self.photo and all(p.suffix.lower() == ".png" for p in self.paths)
+        # dithered palettes are slow: estimate photos as PNG on a small copy (graphics would
+        # gain blended colours when shrunk, but they're fast at full preview size)
+        self.pv_png = self.pv
+        if self.photo:
+            self.pv_png = self.pv.copy()
+            self.pv_png.thumbnail((480, 480), Image.LANCZOS)
 
         row, self.mode = toggle_row(["Quality", "Target size"])
         self.body.addLayout(row)
@@ -1143,7 +1153,15 @@ class CompressWindow(ToolWindow):
             self.side.addItem(name)
         g2.addWidget(self.side, 0, 1)
         self.webp = QCheckBox("Convert to WebP (usually the smallest)")
+        self.webp.setChecked(suggest_webp)
         g2.addWidget(self.webp, 1, 1)
+        if suggest_webp:
+            hint = QLabel("This PNG looks like a photo. PNG keeps only 256 colours when compressed, "
+                          "so WebP looks better and is much smaller.")
+            hint.setObjectName("dim")
+            hint.setWordWrap(True)
+            g2.addWidget(hint, 2, 1)
+            self.resize(self.width(), self.height() + 60)
         self.body.addLayout(g2)
 
         # before / after at 100%
@@ -1204,9 +1222,18 @@ class CompressWindow(ToolWindow):
         return box
 
     def _crop_100(self, im: Image.Image) -> QPixmap:
-        if not hasattr(self, "_box"):
-            self._box = self._detail_box(self.pv)
         return QPixmap.fromImage(qimage_from_pil(im.crop(self._box)))
+
+    def _after(self, target: str, q: int) -> QPixmap:
+        """The same 100% crop, compressed."""
+        if target == "PNG":
+            crop = imaging.quantize_png(self.pv.crop(self._box), q, self.photo, palette_from=self.pv_png)
+            return QPixmap.fromImage(qimage_from_pil(crop.convert("RGB")))
+        from .convert import save_image
+        buf = io.BytesIO()
+        save_image(self.pv, buf, target, quality=q)
+        buf.seek(0)
+        return self._crop_100(Image.open(buf).convert("RGB"))
 
     def _set_before(self):
         self.before.setPixmap(self._crop_100(self.pv))
@@ -1218,27 +1245,20 @@ class CompressWindow(ToolWindow):
 
     def estimate(self):
         side, target = self._settings()
-        im = self.pv
+        im = self.pv_png if target == "PNG" else self.pv
         # scale factor from preview pixels to output pixels
         out_long = min(self.full_long, side) if side else self.full_long
         px_ratio = (out_long / max(im.size)) ** 2
         if self.mode.checkedId() == 1:
             limit = self.TARGETS[self.tgrp.checkedId()][1]
-            q = self._quality_for(im, target, limit, px_ratio)
+            q = self._quality_for(im, target, limit, px_ratio, self.photo)
             note = f"quality ≈ {q}"
         else:
             q = self.q.value()
             note = ""
-        n = int(imaging.encode_size(im, target, q) * px_ratio)
-        buf = io.BytesIO()
-        if target == "PNG":
-            im.convert("RGBA").quantize(colors=max(16, min(256, int(q * 2.56)))).save(buf, "PNG")
-        else:
-            from .convert import save_image
-            save_image(im, buf, target, quality=q)
-        buf.seek(0)
+        n = int(imaging.encode_size(im, target, q, self.photo) * px_ratio)
         try:
-            self.after.setPixmap(self._crop_100(Image.open(buf).convert("RGB")))
+            self.after.setPixmap(self._after(target, q))
         except Exception:
             pass
         orig1 = file_size(self.path)
@@ -1261,11 +1281,11 @@ class CompressWindow(ToolWindow):
         self.saving.style().polish(self.saving)
 
     @staticmethod
-    def _quality_for(im, target, limit, px_ratio) -> int:
+    def _quality_for(im, target, limit, px_ratio, dither=None) -> int:
         lo, hi, best = 30, 92, 30
         while lo <= hi:
             q = (lo + hi) // 2
-            if imaging.encode_size(im, target, q) * px_ratio <= limit:
+            if imaging.encode_size(im, target, q, dither) * px_ratio <= limit:
                 best, lo = q, q + 1
             else:
                 hi = q - 1

@@ -31,6 +31,52 @@ def save_like(im: Image.Image, src: str | Path, label: str, force_ext: str | Non
 
 
 # ---------------------------------------------------------------- compress
+def png_colors(quality: int) -> int:
+    return max(16, min(256, int(quality * 2.56)))
+
+
+def looks_like_photo(im: Image.Image) -> bool:
+    """Continuous tone (photos, smooth gradients), where a 256-colour palette shows. Screenshots
+    and graphics reuse a few colours: their 256 most common ones cover nearly every pixel."""
+    small = im.convert("RGB")
+    if max(small.size) > 256:
+        k = 256 / max(small.size)
+        # NEAREST: sample real pixels, don't invent blended colours
+        small = small.resize((max(1, round(small.width * k)), max(1, round(small.height * k))), Image.NEAREST)
+    n = small.width * small.height
+    counts = sorted((c for c, _ in small.getcolors(n)), reverse=True)
+    return sum(counts[:256]) / n < 0.9
+
+
+def has_alpha(im: Image.Image) -> bool:
+    if im.mode in ("RGBA", "LA", "PA") or "transparency" in im.info:
+        return im.convert("RGBA").getchannel("A").getextrema()[0] < 255
+    return False
+
+
+def quantize_png(im: Image.Image, quality: int, dither: bool | None = None,
+                 palette_from: Image.Image | None = None) -> Image.Image:
+    """Lossy PNG (like pngquant): a median-cut palette, mapped with Floyd-Steinberg dithering when
+    the image is a photo so gradients don't band; flat graphics stay crisp without it.
+    `palette_from`: build the palette from this (smaller) image instead, for fast previews.
+    Pillow only keeps an alpha channel with its octree quantiser, so transparent images use that."""
+    colors = png_colors(quality)
+    if has_alpha(im):
+        return im.convert("RGBA").quantize(colors, method=Image.Quantize.FASTOCTREE)
+    rgb = im.convert("RGB")
+    src = (rgb if palette_from is None else palette_from).convert("RGB")
+    fits = src.getcolors(256)   # None when there are more than 256 colours
+    if fits:
+        colors = len(fits)      # a palette fits exactly: lossless
+    pal = src.quantize(colors, method=Image.Quantize.MEDIANCUT)
+    if dither is None:
+        dither = looks_like_photo(rgb)
+    if not dither and palette_from is None:
+        return pal
+    # Pillow ignores `dither` unless it maps onto a given palette, hence the second pass
+    return rgb.quantize(palette=pal, dither=Image.Dither.FLOYDSTEINBERG if dither else Image.Dither.NONE)
+
+
 def compress_image(src: str | Path, quality: int = 72, max_side: int | None = None,
                    to_webp: bool = False) -> Path:
     im = open_image(src)
@@ -40,10 +86,7 @@ def compress_image(src: str | Path, quality: int = 72, max_side: int | None = No
     out = sibling(src, "Compressed", ext)
     tgt = target_for(out)
     if tgt == "PNG":
-        # lossy PNG: quantise to a palette (like pngquant), keeps transparency
-        colors = max(16, min(256, int(quality * 2.56)))
-        q = im.convert("RGBA").quantize(colors=colors, method=Image.Quantize.FASTOCTREE,
-                                        dither=Image.Dither.FLOYDSTEINBERG)
+        q = quantize_png(im, quality)
         atomic_save(lambda dst: q.save(dst, "PNG", optimize=True), out)
     elif tgt in ("BMP", "TIFF", "GIF", "ICO"):
         out = sibling(src, "Compressed", ".jpg")
@@ -67,12 +110,11 @@ def compress_pdf(src: str | Path, image_dpi: int = 150, quality: int = 70) -> Pa
     return out
 
 
-def encode_size(im: Image.Image, target: str, quality: int) -> int:
+def encode_size(im: Image.Image, target: str, quality: int, dither: bool | None = None) -> int:
     """Bytes `im` would take saved as `target` at `quality` (PNG = palette-quantised)."""
     buf = io.BytesIO()
     if target == "PNG":
-        colors = max(16, min(256, int(quality * 2.56)))
-        im.convert("RGBA").quantize(colors=colors, method=Image.Quantize.FASTOCTREE).save(buf, "PNG", optimize=True)
+        quantize_png(im, quality, dither).save(buf, "PNG", optimize=True)
     else:
         save_image(im, buf, target, quality=quality)
     return buf.tell()
@@ -90,11 +132,12 @@ def plan_target_size(im: Image.Image, target: str, max_bytes: int) -> tuple[int,
     """Find (quality, max_side) that fits under max_bytes: binary-search quality, then shrink."""
     side = None
     work = im
+    dither = looks_like_photo(im) if target == "PNG" else None
     for _ in range(8):
         lo, hi, best = 30, 92, None
         while lo <= hi:
             q = (lo + hi) // 2
-            if encode_size(work, target, q) <= max_bytes:
+            if encode_size(work, target, q, dither) <= max_bytes:
                 best, lo = q, q + 1
             else:
                 hi = q - 1
@@ -114,9 +157,7 @@ def compress_to(src: str | Path, quality: int, max_side: int | None, target: str
         im.thumbnail((max_side, max_side), Image.LANCZOS)
     out = sibling(src, "Compressed", "." + ("jpg" if target == "JPG" else target.lower()))
     if target == "PNG":
-        colors = max(16, min(256, int(quality * 2.56)))
-        q = im.convert("RGBA").quantize(colors=colors, method=Image.Quantize.FASTOCTREE,
-                                        dither=Image.Dither.FLOYDSTEINBERG)
+        q = quantize_png(im, quality)
         atomic_save(lambda dst: q.save(dst, "PNG", optimize=True), out)
     else:
         save_image(im, out, target, quality=quality)

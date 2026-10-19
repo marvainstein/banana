@@ -48,7 +48,7 @@ def keys_from_tables() -> set[str]:
     keys |= {"Compressing…", "Splitting…", "Rotating…", "Extracting images…"}
     keys |= {"Size", "Camera", "Taken", "Software", "Exposure", "Aperture", "Location",
              "title", "author", "creator", "producer", "Pages"}
-    keys |= {label for _, label in settings.OUTPUTS + settings.DPIS}
+    keys |= {label for _, label in settings.OUTPUTS + settings.DPIS + settings.MENU_SHAPES}
     keys |= {"{n} arrow", "{n} arrows", "{n} box", "{n} boxes", "{n} circle", "{n} circles",
              "{n} stroke", "{n} strokes", "{n} highlight", "{n} highlights", "{n} label", "{n} labels",
              "{n} step", "{n} steps", "{n} area blacked out", "{n} areas blacked out",

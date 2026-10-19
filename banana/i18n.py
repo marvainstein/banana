@@ -344,6 +344,8 @@ ES = {
     "Automatic (system)": "Automático (sistema)",
     "Open the menu with": "Abrir el menú con",
     "…pressed while you’re dragging a file": "…apretado mientras arrastrás un archivo",
+    "Menu shape": "Forma del menú",
+    "Round": "Redonda",
     "Save results": "Guardar resultados",
     "Next to the original": "Junto al original",
     "In a “Banana” subfolder": "En una subcarpeta “Banana”",

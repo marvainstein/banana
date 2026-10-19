@@ -26,6 +26,7 @@ DEFAULTS = {
     "trigger": "shift",
     "welcomed": False,
     "language": "auto",
+    "menu_shape": "banana",
 }
 
 
@@ -56,7 +57,7 @@ class Settings:
         self.apply()
 
     def apply(self):
-        for k in ("output", "jpg_quality", "pdf_dpi"):
+        for k in ("output", "jpg_quality", "pdf_dpi", "menu_shape"):
             CONFIG[k] = self.get(k)
         i18n.set_language(self.get("language"))
 
@@ -112,6 +113,7 @@ TRIGGERS = ([("shift", "Shift ⇧"), ("ctrl", "Control ⌃"), ("alt", "Option �
             else [("shift", "Shift"), ("ctrl", "Ctrl"), ("alt", "Alt")])
 OUTPUTS = [("next", "Next to the original"), ("folder", "In a “Banana” subfolder")]
 DPIS = [(150, "150 dpi · small"), (200, "200 dpi · balanced"), (300, "300 dpi · print")]
+MENU_SHAPES = [("banana", "Banana"), ("round", "Round")]
 
 
 class SettingsWindow(GlassWindow):
@@ -119,7 +121,7 @@ class SettingsWindow(GlassWindow):
     language_changed = Signal()
 
     def __init__(self, settings: Settings):
-        super().__init__(tr("Settings"), size=(520, 510))
+        super().__init__(tr("Settings"), size=(520, 550))
         self.s = settings
         grid = QGridLayout()
         grid.setHorizontalSpacing(14)
@@ -148,6 +150,12 @@ class SettingsWindow(GlassWindow):
         hint = QLabel(tr("…pressed while you’re dragging a file"))
         hint.setObjectName("dim")
         grid.addWidget(hint, r, 1)
+        r += 1
+
+        grid.addWidget(QLabel(tr("Menu shape")), r, 0)
+        self.shape = combo(MENU_SHAPES, self.s.get("menu_shape"))
+        self.shape.currentIndexChanged.connect(lambda _: self._save("menu_shape", self.shape.currentData()))
+        grid.addWidget(self.shape, r, 1)
         r += 1
 
         grid.addWidget(QLabel(tr("Save results")), r, 0)

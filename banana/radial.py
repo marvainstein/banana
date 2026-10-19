@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QWidget
 
 from . import glass
 from .i18n import tr
+from .util import CONFIG
 
 
 @dataclass
@@ -55,6 +56,30 @@ def angles(n: int, i: int) -> tuple[float, float]:
     return start + GAP_DEG / 2, start + span - GAP_DEG / 2
 
 
+# "banana" (Settings → Menu shape): the petals follow a crescent under the hub, open at the
+# top, thickest in the middle and thinning towards the tips; "round" is the full ring.
+BANANA_ARC = 250.0      # degrees covered, centred at 6 o'clock
+BANANA_OUT = 166        # outer radius in the middle of the banana
+BANANA_TIP = 0.60       # thickness at the tips, relative to the middle
+
+
+def banana() -> bool:
+    return CONFIG.get("menu_shape", "banana") == "banana"
+
+
+def petal(n: int, i: int) -> tuple[float, float, float, float]:
+    """(a0, a1, r0, r1) of petal i of n: angles in degrees (Qt: 0 = 3 o'clock, CCW), radii."""
+    if not banana():
+        a0, a1 = angles(n, i)
+        return a0, a1, R_IN, R_OUT
+    span = BANANA_ARC / n
+    left = 270 - BANANA_ARC / 2               # left tip; going CCW passes under the hub
+    a0 = left + i * span
+    t = (i + 0.5) / n                          # 0..1 along the banana
+    thick = BANANA_TIP + (1 - BANANA_TIP) * math.sin(math.pi * t)
+    return a0 + GAP_DEG / 2, a0 + span - GAP_DEG / 2, R_IN, R_IN + (BANANA_OUT - R_IN) * thick
+
+
 # ---------------------------------------------------------------- background render
 class _RenderSig(QObject):
     done = Signal(int, int, QImage, bool)   # serial, petal count, image, is_light
@@ -72,8 +97,8 @@ class _RenderJob(QRunnable):
             c = SIZE / 2
             fields = [liquid.sdf_circle(SIZE, SIZE, c, c, R_HUB)]
             for i in range(self.n):
-                a0, a1 = angles(self.n, i)
-                fields.append(liquid.sdf_ring_sector(SIZE, SIZE, c, c, R_IN, R_OUT, a0, a1, CORNER))
+                a0, a1, r0, r1 = petal(self.n, i)
+                fields.append(liquid.sdf_ring_sector(SIZE, SIZE, c, c, r0, r1, a0, a1, CORNER))
             sdf = liquid.union(*fields)
             img, light = liquid.render(self.backdrop, sdf, liquid.GlassStyle())
             sh = liquid.shadow(sdf, spread=26, opacity=0.42 if light else 0.30, offset=(0, 8))
@@ -255,8 +280,8 @@ class RadialMenu(QWidget):
         n = len(self.items) or 0
         if n:
             for i in range(n):
-                a0, a1 = angles(n, i)
-                path = path.united(sector_path(c, R_IN - 2, R_OUT + 14, a0 - 1, a1 + 1))
+                a0, a1, r0, r1 = petal(n, i)
+                path = path.united(sector_path(c, r0 - 2, r1 + 14, a0 - 1, a1 + 1))
         else:
             outer = QPainterPath()
             outer.addEllipse(c, R_OUT + 14, R_OUT + 14)
@@ -318,12 +343,16 @@ class RadialMenu(QWidget):
         d = math.hypot(dx, dy)
         if d <= R_HUB + 4:
             return -2
-        if d > R_OUT + 30 or not self.items:
+        if not self.items:
             return -1
-        ang = math.degrees(math.atan2(dy, dx)) % 360
+        ang = math.degrees(math.atan2(dy, dx))
         n = len(self.items)
-        rel = (90 + 180.0 / n - ang) % 360
-        return int(rel // (360.0 / n)) % n
+        for i in range(n):
+            a0, a1, _, r1 = petal(n, i)
+            # half the gap on each side belongs to the petal, so there are no dead lines
+            if (ang - (a0 - GAP_DEG / 2)) % 360 <= (a1 - a0) + GAP_DEG and d <= r1 + 30:
+                return i
+        return -1
 
     def _set_hover(self, h: int, pos: QPointF | None = None):
         if pos is not None:
@@ -440,12 +469,14 @@ class RadialMenu(QWidget):
 
         fg, fg_dim, shadow_col = self._text_colors()
         rot = (1 - self._swap) * -22
+        if n and banana():
+            self._paint_banana_ends(p, c, n)
         for i, it in enumerate(items):
-            a0, a1 = angles(n, i)
+            a0, a1, r0, r1 = petal(n, i)
             h = self.spring[i] if i < len(self.spring) else 0.0
             if h > 0.001:
-                self._paint_hover(p, c, a0, a1, h, img if have_liquid else None)
-            self._petal_label(p, c, it, (a0 + a1) / 2 + rot, (R_IN + R_OUT) / 2 + h * 4, h,
+                self._paint_hover(p, c, a0, a1, r0, r1, h, img if have_liquid else None)
+            self._petal_label(p, c, it, (a0 + a1) / 2 + rot, (r0 + r1) / 2 + h * 4, h,
                               fg, shadow_col)
 
         self._paint_hub(p, c, fg, fg_dim, shadow_col)
@@ -456,18 +487,41 @@ class RadialMenu(QWidget):
         glass.paint_glass(p, hub, self.backdrop, QPointF(0, 0), tint=QColor(22, 18, 34, 80),
                           rainbow_alpha=150, highlight=1.3)
         for i in range(n):
-            a0, a1 = angles(n, i)
-            glass.paint_glass(p, sector_path(c, R_IN, R_OUT, a0, a1), self.backdrop, QPointF(0, 0),
+            a0, a1, r0, r1 = petal(n, i)
+            glass.paint_glass(p, sector_path(c, r0, r1, a0, a1), self.backdrop, QPointF(0, 0),
                               tint=QColor(22, 18, 34, 62), rainbow_alpha=140)
 
-    def _paint_hover(self, p: QPainter, c: QPointF, a0: float, a1: float, h: float, img: QImage | None):
+    def _paint_banana_ends(self, p: QPainter, c: QPointF, n: int):
+        """A stalk on the left tip and a dark end on the right one."""
+        a0, _, r0, r1 = petal(n, 0)
+        a = math.radians(a0 - 1)
+        r = (r0 + r1) / 2
+        tip = QPointF(c.x() + r * math.cos(a), c.y() - r * math.sin(a))
+        p.save()
+        p.translate(tip)
+        p.rotate(-(a0 - 1) - 90 + 25)           # along the tangent, bent up a little
+        p.setPen(QPen(QColor(60, 40, 15, 140), 1))
+        p.setBrush(QColor(110, 85, 35, 230))
+        p.drawRoundedRect(QRectF(-6, -2, 12, 30), 5, 5)
+        p.restore()
+        _, a1, r0, r1 = petal(n, n - 1)
+        a = math.radians(a1)
+        r = (r0 + r1) / 2
+        end = QPointF(c.x() + r * math.cos(a), c.y() - r * math.sin(a))
+        g = QRadialGradient(end, (r1 - r0) * 0.55)
+        g.setColorAt(0.0, QColor(80, 52, 18, 200))
+        g.setColorAt(1.0, QColor(80, 52, 18, 0))
+        p.fillPath(sector_path(c, r0, r1, a1 - 14, a1), g)
+
+    def _paint_hover(self, p: QPainter, c: QPointF, a0: float, a1: float, r0: float, r1: float,
+                     h: float, img: QImage | None):
         mid = math.radians((a0 + a1) / 2)
-        r_mid = (R_IN + R_OUT) / 2
+        r_mid = (r0 + r1) / 2
         pc = QPointF(c.x() + r_mid * math.cos(mid), c.y() - r_mid * math.sin(mid))
         k = 1 + 0.07 * h                     # elastic "pop" towards the cursor
         push = 6 * h
         off = QPointF(push * math.cos(mid), -push * math.sin(mid))
-        path = sector_path(c, R_IN - 1, R_OUT + 1, a0, a1)
+        path = sector_path(c, r0 - 1, r1 + 1, a0, a1)
         p.save()
         p.translate(pc + off)
         p.scale(k, k)

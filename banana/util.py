@@ -46,6 +46,7 @@ CONFIG = {
     "output": "next",        # "next" = beside the original, "folder" = a "Banana" subfolder
     "jpg_quality": 90,
     "pdf_dpi": 200,
+    "menu_shape": "banana",  # "banana" or "round" (radial.petal)
 }
 
 

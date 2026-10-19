@@ -38,6 +38,25 @@ elif IS_LINUX:
 else:
     common.update(icon="banana/assets/banana.ico", version="installer/version_info.txt")
 
+def min_macos(binaries) -> str:
+    """The macOS the bundle really needs: the highest `minos` among the bundled binaries
+    (e.g. numpy's Apple Silicon wheels want 14.0), so older Macs get a clear message."""
+    import re
+    import subprocess
+    best = (11, 0)
+    for _, path, _ in binaries:
+        try:
+            out = subprocess.run(["otool", "-l", path], capture_output=True, text=True, timeout=20).stdout
+        except Exception:
+            continue
+        m = re.search(r"LC_BUILD_VERSION.*?minos (\d+)\.(\d+)", out, re.S) or \
+            re.search(r"LC_VERSION_MIN_MACOSX.*?version (\d+)\.(\d+)", out, re.S)
+        if m:
+            best = max(best, (int(m[1]), int(m[2])))
+    print(f"Banana: minimum macOS for this build: {best[0]}.{best[1]}")
+    return f"{best[0]}.{best[1]}"
+
+
 if IS_MAC:
     exe = EXE(pyz, a.scripts, [], exclude_binaries=True, argv_emulation=False, **common)
     coll = COLLECT(exe, a.binaries, a.datas, name="Banana", upx=False)
@@ -52,7 +71,7 @@ if IS_MAC:
             "CFBundleShortVersionString": "1.1.0",
             "CFBundleVersion": "1.1.0",
             "LSUIElement": True,                 # menu-bar app, no Dock icon
-            "LSMinimumSystemVersion": "11.0",
+            "LSMinimumSystemVersion": min_macos(a.binaries),
             "NSHighResolutionCapable": True,
             "NSRequiresAquaSystemAppearance": False,
             # show up in Finder's "Open With" for any file, and accept drops on the app icon

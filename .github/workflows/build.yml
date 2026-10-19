@@ -285,7 +285,8 @@ jobs:
 
   publish:
     needs: [windows, macos, linux]
-    if: always() && github.event_name == 'push' && needs.windows.result == 'success'
+    # the Mac builds are what Banana is shared as: publish when both of them succeed
+    if: always() && github.event_name == 'push' && needs.macos.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -303,24 +304,23 @@ jobs:
           name: Banana (latest build)
           make_latest: true
           body: |
-            **Windows**
-            - **Banana-Setup.exe** — recommended. Per-user install (no admin), Start menu, start with Windows, right-click "Banana…" and Send To.
-            - **Banana.exe** — portable.
+            ## Mac
+            La forma más fácil, sin advertencias de seguridad: pegá esto en la **Terminal** y apretá Enter. Baja la versión que corresponde a tu Mac (Apple Silicon o Intel), la instala en Aplicaciones y la abre:
+            ```
+            curl -fsSL https://raw.githubusercontent.com/marvainstein/banana/main/install-mac.sh | bash
+            ```
+            O descargá el .dmg:
+            - **Banana-mac-apple-silicon.dmg**: Macs con chip M1, M2, M3, M4…
+            - **Banana-mac-intel.dmg**: Macs con procesador Intel.
 
-            **Mac** (macOS 11+). Easiest, with no security warning, is to paste into Terminal:
-            `curl -fsSL https://raw.githubusercontent.com/marvainstein/banana/main/install-mac.sh | bash`
+            Abrí el .dmg y arrastrá Banana a Aplicaciones. La primera vez macOS dice que no puede verificarla (no está firmada por Apple): abrila una vez, tocá **Listo**, andá a **Ajustes del Sistema → Privacidad y seguridad**, bajá hasta "Se bloqueó Banana" y tocá **Abrir igual**. Es una sola vez.
 
-            Or download:
-            - **Banana-mac-apple-silicon.dmg** — M1/M2/M3/M4 Macs.
-            - **Banana-mac-intel.dmg** — Intel Macs.
-            Open the .dmg and drag Banana to Applications.
-            **First launch (until Banana is notarized by Apple):** open Banana once and click **Done** on the warning, then go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to "Banana was blocked", and confirm. You only do this once.
-            Or in Terminal: `xattr -dr com.apple.quarantine /Applications/Banana.app`
+            Banana vive en la barra de menús (arriba a la derecha). Arrastrá cualquier archivo y apretá **Shift**.
 
-            **Linux** (Debian 12+, Ubuntu 23.04+, Mint, MX… on X11 desktops such as XFCE, MATE, Cinnamon):
-            - **Banana-linux-amd64.deb** — install with `sudo apt install ./Banana-linux-amd64.deb`, then open Banana from the app menu. Works with or without a compositor.
+            ## Windows y Linux
+            - **Banana-Setup.exe** / **Banana.exe** (Windows) y **Banana-linux-amd64.deb** (Linux), cuando esos builds salen bien.
 
-            Built automatically from commit ${{ github.sha }}.
+            Basado en [DragShift](https://github.com/llamaboi55/DragShift) (licencia MIT). Compilado automáticamente desde ${{ github.sha }}.
           files: out/*
 
       - name: Publish tagged release

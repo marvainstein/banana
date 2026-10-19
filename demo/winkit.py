@@ -25,7 +25,6 @@ except Exception:
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0.03
 
-R_PETAL = 109  # (R_IN + R_OUT) / 2 in radial.py
 LOG = None
 T0 = 0.0
 
@@ -241,10 +240,9 @@ def glide(x, y, dur=0.45):
     pyautogui.moveTo(x, y, duration=dur, tween=pyautogui.easeInOutQuad)
 
 
-def petal_xy(center, n, i, r=R_PETAL):
-    span = 360 / n
-    a = math.radians(90 - i * span)
-    return int(center[0] + r * math.cos(a)), int(center[1] - r * math.sin(a))
+def petal_xy(center, n, i):
+    from banana import radial   # same geometry as the app (banana or round menu)
+    return radial.petal_on_screen(center, n, i)
 
 
 def drag_open_menu(src, nudge=(620, 40), key="shift"):
@@ -268,11 +266,11 @@ def drag_open_menu(src, nudge=(620, 40), key="shift"):
     return menu_center(cur)
 
 
-def menu_center(cur, size=400):
+def menu_center(cur):
     """The menu is kept fully on screen, so near an edge its centre isn't the cursor."""
+    from banana import radial
     sw, sh = pyautogui.size()
-    half = size // 2
-    return (min(max(cur[0], half), sw - half), min(max(cur[1], half), sh - half))
+    return radial.hub_on_screen(cur, sw, sh)
 
 
 def switch_ring(key="shift"):

@@ -85,6 +85,24 @@ def gap_deg() -> float:
     return BANANA_GAP if banana() else GAP_DEG
 
 
+def hub_on_screen(cursor: tuple[int, int], screen_w: int, screen_h: int) -> tuple[int, int]:
+    """Where the hub lands for a cursor: popup() keeps the window on screen, so near an edge
+    it isn't the cursor. Used by the E2E scripts to aim at petals."""
+    w, h, hub = frame()
+    hx, hy = round(hub.x()), round(hub.y())
+    return (min(max(cursor[0] - hx, 0), screen_w - 1 - w) + hx,
+            min(max(cursor[1] - hy, 0), screen_h - 1 - h) + hy)
+
+
+def petal_on_screen(hub_xy: tuple[int, int], n: int, i: int) -> tuple[int, int]:
+    """Screen point in the middle of petal i of n, for a hub at hub_xy."""
+    hub = frame()[2]
+    c, a0, a1, r0, r1 = petal(n, i)
+    a, r = math.radians((a0 + a1) / 2), (r0 + r1) / 2
+    return (round(hub_xy[0] + c.x() - hub.x() + r * math.cos(a)),
+            round(hub_xy[1] + c.y() - hub.y() - r * math.sin(a)))
+
+
 def label_room(a0: float, a1: float, r0: float, r1: float, line: float = 16, pad: float = 8) -> float:
     """Width a horizontal label of height `line` can take in the middle of a petal. A petal is
     about a box of `chord` along its curve by `r1 - r0` across, turned to its angle; a tilted

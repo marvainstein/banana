@@ -43,7 +43,6 @@ BASE = Path.home() / "BananaTest"
 LOGF = open(OUT / "log.txt", "w", encoding="utf-8")
 RESULTS: list[dict] = []
 T0 = time.time()
-R_PETAL = 109
 WIN = (40, 40, 600, 540)           # Thunar window x, y, w, h
 CMD = shlex.split(os.environ.get("BANANA_CMD", "banana"))
 
@@ -95,15 +94,15 @@ def screen_size():
     return int(w), int(h)
 
 
-def menu_center(cur, size=400):
+def menu_center(cur):
+    from banana import radial   # same geometry as the app (banana or round menu)
     sw, shh = screen_size()
-    half = size // 2
-    return min(max(cur[0], half), sw - half), min(max(cur[1], half), shh - half)
+    return radial.hub_on_screen(cur, sw, shh)
 
 
-def petal_xy(c, n, i, r=R_PETAL):
-    a = math.radians(90 - i * 360 / n)
-    return int(c[0] + r * math.cos(a)), int(c[1] - r * math.sin(a))
+def petal_xy(c, n, i):
+    from banana import radial
+    return radial.petal_on_screen(c, n, i)
 
 
 # ------------------------------------------------------------------ Thunar

@@ -55,3 +55,18 @@ def test_banana_is_open_at_the_top_and_thin_at_the_tips():
         assert radial.label_room(*tip[1:]) < radial.label_room(*middle[1:])
     finally:
         CONFIG["menu_shape"] = "banana"
+
+
+@pytest.mark.parametrize("cursor", [(800, 500), (5, 5), (1435, 895)])
+def test_e2e_aiming_matches_the_menu(shape, cursor):
+    """demo/e2e_*.py aim with hub_on_screen + petal_on_screen: those points must hit."""
+    m = menu_with(8)
+    w, h, hub = radial.frame()
+    hx, hy = radial.hub_on_screen(cursor, 1440, 900)
+    if cursor == (800, 500):
+        assert (hx, hy) == cursor                      # away from the edges: under the cursor
+    tl = (hx - hub.x(), hy - hub.y())                  # where the window's corner lands
+    assert 0 <= tl[0] <= 1440 - w and 0 <= tl[1] <= 900 - h
+    for i in range(8):
+        x, y = radial.petal_on_screen((hx, hy), 8, i)
+        assert m.hit(QPointF(x - tl[0], y - tl[1])) == i

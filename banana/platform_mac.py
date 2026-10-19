@@ -4,8 +4,10 @@
   modifier state, with no Accessibility or Input Monitoring permission needed.
 * Capture: CGWindowListCreateImage can capture "everything below window N", which keeps
   Finder's drag picture and our own windows out of the glass (live refresh like Windows'
-  capture exclusion). Seeing other apps' windows needs the Screen Recording permission;
-  without it macOS returns just the wallpaper, which still makes a pleasant glass.
+  capture exclusion). It needs the Screen Recording permission and asking for it pops up a
+  system prompt, so Banana only captures once the user has opted in (Settings → Enable
+  full liquid glass). Until then the glass refracts the desktop picture, read straight
+  from its file: no permission, no prompt.
 * Start at login: a LaunchAgent plist.
 """
 from __future__ import annotations
@@ -104,6 +106,88 @@ def drag_window_ids(cursor: tuple[int, int] | None = None) -> list[int]:
         return []
 
 
+def _to_pil(img):
+    from PIL import Image
+    width, height = Quartz.CGImageGetWidth(img), Quartz.CGImageGetHeight(img)
+    bpr = Quartz.CGImageGetBytesPerRow(img)
+    data = Quartz.CGDataProviderCopyData(Quartz.CGImageGetDataProvider(img))
+    return Image.frombuffer("RGBA", (width, height), bytes(data), "raw", "BGRA", bpr, 1).convert("RGB")
+
+
+_WALLPAPER: dict = {}    # (file, screen w, h) -> PIL image the size of the screen, in points
+_LOADING: set = set()
+
+
+def _screen_wallpaper(cx: float, cy: float, wait: bool):
+    """(desktop picture scaled to fill its screen, screen origin) for the screen at (cx, cy)."""
+    for scr in AppKit.NSScreen.screens():
+        did = int(scr.deviceDescription()["NSScreenNumber"])
+        b = Quartz.CGDisplayBounds(did)          # global points, top-left origin
+        bx, by, bw, bh = b.origin.x, b.origin.y, b.size.width, b.size.height
+        if not (bx <= cx < bx + bw and by <= cy < by + bh):
+            continue
+        url = AppKit.NSWorkspace.sharedWorkspace().desktopImageURLForScreen_(scr)
+        if url is None:
+            return None, (bx, by)
+        key = (str(url.path()), int(bw), int(bh))
+        if key not in _WALLPAPER:
+            if not wait:
+                # decoding a big HEIC takes ~1 s: never on the UI thread; plain glass this time
+                if key not in _LOADING:
+                    _LOADING.add(key)
+                    import threading
+                    threading.Thread(target=_load_into, args=(key, url), daemon=True).start()
+                return None, (bx, by)
+            _load_into(key, url)
+        return _WALLPAPER.get(key), (bx, by)
+    return None, (0, 0)
+
+
+def _load_into(key, url):
+    try:
+        _WALLPAPER[key] = _load_fill(url, key[1], key[2])
+    except Exception:
+        _WALLPAPER[key] = None
+    _LOADING.discard(key)
+
+
+def _load_fill(url, w: int, h: int):
+    """Decode (HEIC too) at about screen size with ImageIO, then scale to fill w×h."""
+    from PIL import Image
+    src = Quartz.CGImageSourceCreateWithURL(url, None)
+    if src is None:
+        return None
+    opts = {Quartz.kCGImageSourceCreateThumbnailFromImageAlways: True,
+            Quartz.kCGImageSourceCreateThumbnailWithTransform: True,
+            Quartz.kCGImageSourceThumbnailMaxPixelSize: max(w, h)}   # the glass blurs it anyway
+    img = Quartz.CGImageSourceCreateThumbnailAtIndex(src, 0, opts)
+    if img is None:
+        return None
+    im = _to_pil(img)
+    k = max(w / im.width, h / im.height)            # "fill screen", like the default setting
+    im = im.resize((max(w, round(im.width * k)), max(h, round(im.height * k))), Image.BILINEAR)
+    left, top = (im.width - w) // 2, (im.height - h) // 2
+    return im.crop((left, top, left + w, top + h))
+
+
+def wallpaper(x: int, y: int, w: int, h: int, wait: bool = False):
+    """The desktop picture under a screen rect (global points) as a PIL RGB image of w×h, or
+    None (not decoded yet, or e.g. an animated wallpaper). Needs no permission. Without
+    `wait`, a picture not decoded yet loads in the background and this returns None."""
+    if not OK:
+        return None
+    try:
+        im, (bx, by) = _screen_wallpaper(x + w / 2, y + h / 2, wait)
+    except Exception:
+        return None
+    if im is None:
+        return None
+    from PIL import Image
+    out = Image.new("RGB", (w, h), (40, 40, 48))
+    out.paste(im.crop((int(x - bx), int(y - by), int(x - bx) + w, int(y - by) + h)), (0, 0))
+    return out
+
+
 def capture(x: int, y: int, w: int, h: int, below_window: int = 0):
     """Capture a screen rect (global points, top-left origin) as a PIL RGB image.
     below_window: capture only what is beneath that window (excludes it and anything above)."""
@@ -127,18 +211,15 @@ def capture(x: int, y: int, w: int, h: int, below_window: int = 0):
         return None
     if img is None:
         return None
-    width, height = Quartz.CGImageGetWidth(img), Quartz.CGImageGetHeight(img)
-    bpr = Quartz.CGImageGetBytesPerRow(img)
-    data = Quartz.CGDataProviderCopyData(Quartz.CGImageGetDataProvider(img))
-    im = Image.frombuffer("RGBA", (width, height), bytes(data), "raw", "BGRA", bpr, 1)
-    return im.convert("RGB").resize((w, h), Image.LANCZOS)
+    return _to_pil(img).resize((w, h), Image.LANCZOS)
 
 
 def has_screen_recording() -> bool:
+    """Already granted? (CGPreflight… only checks; it never shows the system prompt.)"""
     try:
         return bool(Quartz.CGPreflightScreenCaptureAccess())
     except Exception:
-        return True
+        return False
 
 
 def request_screen_recording() -> bool:

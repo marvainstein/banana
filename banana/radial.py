@@ -233,7 +233,8 @@ class RadialMenu(QWidget):
                 if raw is None:
                     raise RuntimeError("capture failed")
                 from . import platform_mac
-                print("menu: mac windows at cursor:", "; ".join(platform_mac.LAST_SWEEP), flush=True)
+                if platform_mac.LAST_SWEEP:
+                    print("menu: mac windows at cursor:", "; ".join(platform_mac.LAST_SWEEP), flush=True)
                 if self.got_drag or paths is None:
                     # belt and braces: Finder's drag picture (icon + name label) sits on the
                     # cursor; erase that area — it ends up under the hub, blurred anyway

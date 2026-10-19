@@ -397,10 +397,6 @@ ES = {
     "the result is saved next to the original": "el resultado se guarda junto al original",
     "Tap {key} again": "Volvé a apretar {key}",
     "to switch between Convert and Tools": "para cambiar entre Convertir y Herramientas",
-    "Optional: allow Screen Recording so the glass can refract the windows behind it (otherwise it shows your wallpaper). Banana never saves or sends it.":
-        "Opcional: permití la Grabación de pantalla para que el vidrio refracte las ventanas de atrás "
-        "(si no, muestra tu fondo de pantalla). Banana nunca la guarda ni la envía.",
-    "Allow Screen Recording…": "Permitir Grabación de pantalla…",
     "You're on a Wayland session: the Shift-while-dragging trigger needs X11 (e.g. XFCE). Right-click a file → Open With → Banana still works.":
         "Estás en una sesión Wayland: el atajo de Shift al arrastrar necesita X11 (por ejemplo XFCE). "
         "Clic derecho en un archivo → Abrir con → Banana sigue funcionando.",

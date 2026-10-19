@@ -47,7 +47,7 @@ Open **Banana** from the app menu. It sits in the panel's notification area, and
 > Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Banana.app`
 > (On macOS 15 and later, the old right-click → Open shortcut no longer skips this warning.)
 >
-> **Mac, optional:** allow **Screen Recording** when Banana asks, so the glass can refract the windows behind it. Without it, the glass shows your wallpaper. Nothing is ever saved or sent.
+> **Mac, optional:** Banana never asks for Screen Recording on its own; its glass refracts your desktop picture. If you want it to refract the windows behind it too, use **Settings → Enable full liquid glass…** and allow it. Nothing is ever saved or sent.
 
 ## How to use
 

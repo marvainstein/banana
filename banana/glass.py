@@ -281,6 +281,10 @@ def grab_screen(x: int, y: int, w: int, h: int, below_window: int = 0):
     macOS: native capture that leaves out the drag picture (and `below_window` and above)."""
     if sys.platform == "darwin":
         from . import platform_mac
+        # capturing without the Screen Recording permission makes macOS prompt for it
+        # (Qt's grabWindow too): until the user opts in, refract the desktop picture
+        if not platform_mac.has_screen_recording():
+            return platform_mac.wallpaper(x, y, w, h)
         if platform_mac.OK:
             im = platform_mac.capture(x, y, w, h, below_window)
             if im is not None:

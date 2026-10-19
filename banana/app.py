@@ -440,6 +440,9 @@ def mac_setup(qapp):
     try:
         from . import platform_mac
         platform_mac.become_accessory()
+        # decode the desktop picture now, so the first menu's glass is instant
+        import threading
+        threading.Thread(target=platform_mac.wallpaper, args=(0, 0, 8, 8, True), daemon=True).start()
     except Exception:
         pass
 

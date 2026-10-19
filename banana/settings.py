@@ -253,17 +253,7 @@ class WelcomeWindow(GlassWindow):
             row.addLayout(col, 1)
             self.body.addLayout(row)
         self.body.addStretch(1)
-        if IS_MAC:
-            from . import platform_mac
-            if not platform_mac.has_screen_recording():
-                note = QLabel(tr("Optional: allow Screen Recording so the glass can refract the windows "
-                                 "behind it (otherwise it shows your wallpaper). Banana never saves or sends it."))
-                note.setObjectName("dim")
-                note.setWordWrap(True)
-                self.body.addWidget(note)
-                b = QPushButton(tr("Allow Screen Recording…"))
-                b.clicked.connect(platform_mac.request_screen_recording)
-                self.body.addWidget(b, 0, Qt.AlignLeft)
+        # (macOS Screen Recording is opt-in from Settings only: no nudge on first launch)
         if IS_LINUX:
             from . import platform_linux
             if platform_linux.is_wayland():

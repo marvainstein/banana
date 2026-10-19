@@ -51,5 +51,7 @@ def test_banana_is_open_at_the_top_and_thin_at_the_tips():
         assert w > 1.8 * h                                  # long, not round
         c, a0, _, r0, _ = tip
         assert c.y() - r0 * math.sin(math.radians(a0)) < hub.y()   # the tips curl up past the hub
+        # a tilted tip leaves a horizontal label less room than the flat middle
+        assert radial.label_room(*tip[1:]) < radial.label_room(*middle[1:])
     finally:
         CONFIG["menu_shape"] = "banana"

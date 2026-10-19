@@ -85,6 +85,22 @@ def gap_deg() -> float:
     return BANANA_GAP if banana() else GAP_DEG
 
 
+def label_room(a0: float, a1: float, r0: float, r1: float, line: float = 16, pad: float = 8) -> float:
+    """Width a horizontal label of height `line` can take in the middle of a petal. A petal is
+    about a box of `chord` along its curve by `r1 - r0` across, turned to its angle; a tilted
+    box leaves less horizontal room than its width (the banana's tips are tilted)."""
+    r = (r0 + r1) / 2
+    chord = 2 * r * math.sin(math.radians(a1 - a0) / 2)
+    m = math.radians((a0 + a1) / 2)
+    along, across = abs(math.sin(m)), abs(math.cos(m))   # how horizontal the curve/thickness run
+    fits = []
+    if along > 1e-3:
+        fits.append((chord - line * across) / along)
+    if across > 1e-3:
+        fits.append((r1 - r0 - line * along) / across)
+    return max(24.0, min(fits) - pad)
+
+
 def petal(n: int, i: int) -> tuple[QPointF, float, float, float, float]:
     """(centre, a0, a1, r0, r1) of petal i of n: an annular sector around `centre`, angles in
     degrees (Qt: 0 = 3 o'clock, CCW), radii in px."""
@@ -493,15 +509,15 @@ class RadialMenu(QWidget):
         fg, fg_dim, shadow_col = self._text_colors()
         rot = (1 - self._swap) * (-6 if banana() else -22)
         if n and banana():
-            self._paint_banana_ends(p, n)
+            self._paint_banana_end(p, n)
         for i, it in enumerate(items):
             pc, a0, a1, r0, r1 = petal(n, i)
             h = self.spring[i] if i < len(self.spring) else 0.0
             if h > 0.001:
                 self._paint_hover(p, pc, a0, a1, r0, r1, h, img if have_liquid else None)
             r = (r0 + r1) / 2
-            room = 2 * r * math.sin(math.radians(a1 - a0) / 2) - 10      # chord across the petal
-            self._petal_label(p, pc, it, (a0 + a1) / 2 + rot, r + h * 4, h, fg, shadow_col, room)
+            self._petal_label(p, pc, it, (a0 + a1) / 2 + rot, r + h * 4, h, fg, shadow_col,
+                              label_room(a0, a1, r0, r1))
 
         self._paint_hub(p, c, fg, fg_dim, shadow_col)
 
@@ -515,20 +531,8 @@ class RadialMenu(QWidget):
             glass.paint_glass(p, sector_path(pc, r0, r1, a0, a1), self.backdrop, QPointF(0, 0),
                               tint=QColor(22, 18, 34, 62), rainbow_alpha=140)
 
-    def _paint_banana_ends(self, p: QPainter, n: int):
-        """A stalk on the left tip and a dark end on the right one."""
-        c, a0, _, r0, r1 = petal(n, 0)
-        a = math.radians(a0 + 1.5)               # just inside the left tip
-        r = (r0 + r1) / 2
-        tip = QPointF(c.x() + r * math.cos(a), c.y() - r * math.sin(a))
-        out = math.degrees(math.atan2(math.cos(a), math.sin(a)))   # tangent, away from the band
-        p.save()
-        p.translate(tip)
-        p.rotate(out - 90 + 12)                  # the stalk continues the curve, bent up a bit
-        p.setPen(QPen(QColor(60, 40, 15, 160), 1))
-        p.setBrush(QColor(110, 85, 35, 235))
-        p.drawRoundedRect(QRectF(-6.5, 0, 13, 40), 6, 6)
-        p.restore()
+    def _paint_banana_end(self, p: QPainter, n: int):
+        """The dark end of the banana, on the right tip."""
         c, _, a1, r0, r1 = petal(n, n - 1)
         a = math.radians(a1)
         r = (r0 + r1) / 2

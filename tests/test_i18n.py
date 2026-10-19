@@ -41,6 +41,7 @@ def keys_from_tables() -> set[str]:
     keys = set(app.GLYPHS) | set(app.HINTS.values()) | set(app.FORMAT_HINTS.values())
     keys |= {n for n, _ in tools.PRESETS} | {n for n, _ in tools.CropWindow.RATIOS}
     keys |= set(tools.RedactWindow.MODES) | set(tools.AddBgWindow.ASPECTS)
+    keys |= {n for _, n in tools.VideoCompressWindow.QUALITIES}
     keys |= {"Brightness", "Contrast", "Saturation", "Warmth", "Sharpness"}
     keys |= {"brightness", "contrast", "saturation", "warmth", "sharpness", "strong", "okay", "weak"}
     keys |= {"⇋ Flip", "⇵ Flip", "Original", "Compressed", "Recycle Bin", "Trash"}

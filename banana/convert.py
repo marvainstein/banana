@@ -363,6 +363,9 @@ def targets_for(cat: str, src_ext: str) -> list[str]:
         if not HEIF_OK:
             t = [x for x in t if x != "HEIC"]
         return t
+    if cat in ("video", "audio"):
+        from . import media
+        return media.targets_for(cat, src_ext)
     return {"pdf": PDF_TARGETS, "docx": DOCX_TARGETS, "text": TEXT_TARGETS}.get(cat, [])
 
 
@@ -381,4 +384,7 @@ def convert(src: str | Path, cat: str, target: str) -> list[Path]:
         return docx_to_pdf(src) if target == "PDF" else docx_to_txt(src)
     if cat == "text":
         return text_to_pdf(src) if target == "PDF" else text_to_docx(src)
+    if cat in ("video", "audio"):
+        from . import media
+        return media.convert(src, target)
     raise ValueError(f"Can't convert {cat} to {target}")

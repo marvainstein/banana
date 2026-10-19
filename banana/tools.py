@@ -1403,6 +1403,57 @@ class ResizeWindow(ToolWindow):
         self.run(lambda: [imaging.resize_image(p, dims_for(p)) for p in paths], tr("Resizing…"))
 
 
+# ================================================================ VIDEO COMPRESS
+class VideoCompressWindow(ToolWindow):
+    tool_name = "Compress"
+    QUALITIES = [("high", "High"), ("medium", "Medium"), ("small", "Small file")]
+    SIDES = [None, 1920, 1280, 854]          # longest side: original, 1080p, 720p, 480p
+    SIDE_NAMES = {1920: "1080p", 1280: "720p", 854: "480p"}
+
+    def __init__(self, paths, notify):
+        super().__init__(tr("Compress video"), paths, notify, size=(560, 340))
+        from . import media
+        info = media.probe(self.path)
+        bits = [media.duration_text(info.duration)]
+        if info.width:
+            bits.append(dims_text(info.width, info.height))
+        if info.vcodec:
+            bits.append({"h264": "H.264", "hevc": "HEVC (H.265)"}.get(info.vcodec, info.vcodec.upper()))
+        about = QLabel("  ·  ".join(bits))
+        about.setObjectName("dim")
+        self.body.addWidget(about)
+
+        self.body.addWidget(section(tr("Quality")))
+        row, self.quality = toggle_row([tr(n) for _, n in self.QUALITIES], 1)
+        self.body.addLayout(row)
+        self.body.addWidget(section(tr("Size")))
+        row, self.side = toggle_row([self.SIDE_NAMES.get(s) or tr("Original") for s in self.SIDES], 0)
+        self.body.addLayout(row)
+        self.audio = QCheckBox(tr("Keep the sound"))
+        self.audio.setChecked(info.has_audio)
+        self.audio.setEnabled(info.has_audio)
+        self.body.addWidget(self.audio)
+        hint = QLabel(tr("Long videos can take a while: the notification shows the progress."))
+        hint.setObjectName("dim")
+        hint.setWordWrap(True)
+        self.body.addWidget(hint)
+        self.body.addStretch(1)
+        label = tr("Compress") if len(self.paths) == 1 else tr("Compress {n} files", n=len(self.paths))
+        self.body.addLayout(self.footer(label, self.save))
+
+    def save(self):
+        from . import media
+        q, quality_name = self.QUALITIES[self.quality.checkedId()]
+        side = self.SIDES[self.side.checkedId()]
+        keep_audio = self.audio.isChecked()
+        bits = [tr(quality_name).lower()] + ([self.SIDE_NAMES[side]] if side else [])
+        if not keep_audio:
+            bits.append(tr("no sound"))
+        paths = list(self.paths)
+        self.run(lambda: [media.compress(p, q, side, keep_audio) for p in paths], tr("Compressing video…"),
+                 ", ".join(bits))
+
+
 # ================================================================ PROTECT (PDF)
 class ProtectWindow(ToolWindow):
     tool_name = "Protect"

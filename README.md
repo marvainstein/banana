@@ -68,6 +68,8 @@ You can also right-click a file → **Banana…**, use **Send to → Banana**, o
 | PDF | JPG or PNG (one per page), DOCX, TXT | Compress · Split · Rotate · Merge (drop several) · **Protect** (AES-256 password) · **Extract images** · Metadata |
 | Word (.docx) | PDF (uses Microsoft Word if it's installed, otherwise a built-in renderer), TXT | — |
 | Text (.txt, .md, .csv…) | PDF, DOCX | — |
+| Video (MOV, MP4, MKV, WEBM, AVI…) | MP4, MOV (iPhone H.264/HEVC just changes container: instant, no quality loss), WEBM, GIF, and the sound alone as MP3, M4A or WAV | **Compress** (quality, max 1080p/720p/480p, optionally without sound; the notification shows the progress) |
+| Audio (MP3, M4A, WAV, FLAC, OGG…) | MP3, M4A, WAV, FLAC, OGG | — |
 
 **Settings** (tray menu): trigger key (Shift, Ctrl or Alt), where results go (next to the original or a `Banana` subfolder), JPG/WebP quality, PDF → image resolution, and start at login.
 
@@ -89,6 +91,8 @@ Every push runs these jobs on GitHub's Windows, Mac and Linux machines:
 ## License
 
 [MIT](LICENSE): free to use, modify and share. Copyright (c) 2026 DragShift contributors; Banana's changes are released under the same license.
+
+Video and audio use [FFmpeg](https://ffmpeg.org), bundled through [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg). That FFmpeg build is licensed under the GPL, separately from Banana's own code.
 
 ## Run from source
 

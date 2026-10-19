@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".heic", ".heif", ".tif", ".tiff",
@@ -9,6 +10,9 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".heic", ".heif", ".tif", ".tiff
 PDF_EXTS = {".pdf"}
 DOCX_EXTS = {".docx"}
 TEXT_EXTS = {".txt", ".md", ".csv", ".log", ".json", ".xml", ".html", ".htm"}
+VIDEO_EXTS = {".mov", ".mp4", ".m4v", ".mkv", ".webm", ".avi", ".wmv", ".flv", ".mpg", ".mpeg",
+              ".3gp", ".mts", ".m2ts"}
+AUDIO_EXTS = {".mp3", ".m4a", ".aac", ".wav", ".flac", ".ogg", ".oga", ".opus", ".aif", ".aiff", ".wma"}
 
 
 def category(path: str | Path) -> str | None:
@@ -21,6 +25,10 @@ def category(path: str | Path) -> str | None:
         return "docx"
     if ext in TEXT_EXTS:
         return "text"
+    if ext in VIDEO_EXTS:
+        return "video"
+    if ext in AUDIO_EXTS:
+        return "audio"
     return None
 
 
@@ -88,6 +96,21 @@ def file_size(path: str | Path) -> int:
 # signals) can be garbage-collected while it's still running: results then never arrive,
 # or the app crashes. Keep every job alive until its result has been handled.
 ALIVE: set = set()
+
+
+# Progress of long jobs (video): the job's thread installs a callback, the work calls progress().
+_local = threading.local()
+
+
+def set_progress_callback(cb):
+    _local.cb = cb
+
+
+def progress(fraction: float):
+    """Report 0..1 done from inside a background job (no-op outside one)."""
+    cb = getattr(_local, "cb", None)
+    if cb is not None:
+        cb(fraction)
 
 
 def keep(job):

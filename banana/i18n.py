@@ -93,6 +93,14 @@ ES = {
     "Legacy web": "Web antigua",
     "Editable Word": "Word editable",
     "Plain text": "Texto plano",
+    "Plays everywhere": "Se reproduce en todos lados",
+    "QuickTime · Apple": "QuickTime · Apple",
+    "For the web": "Para la web",
+    "Audio only": "Solo el audio",
+    "Audio · Apple": "Audio · Apple",
+    "Audio · uncompressed": "Audio · sin comprimir",
+    "Audio · lossless": "Audio · sin pérdida",
+    "Audio · open format": "Audio · formato abierto",
 
     # ------------------------------------------------------------ app, tray, notifications
     "No permission to write next to this file. Try a folder you own, or set Settings → Save results → subfolder.":
@@ -135,6 +143,12 @@ ES = {
     "This PDF is password-protected. Remove the password first.":
         "Este PDF tiene contraseña. Quitásela primero.",
     "No images found in this PDF.": "Este PDF no tiene imágenes.",
+    "FFmpeg isn't available, so video and audio can't be converted.":
+        "FFmpeg no está disponible, así que no se puede convertir video ni audio.",
+    "This file doesn't look like a video or audio file.": "Este archivo no parece un video ni un audio.",
+    "FFmpeg couldn't process this file.": "FFmpeg no pudo procesar este archivo.",
+    "This video has no sound.": "Este video no tiene sonido.",
+    "This file has no video.": "Este archivo no tiene video.",
 
     # ------------------------------------------------------------ result summaries
     "Nothing was written": "No se guardó nada",
@@ -317,6 +331,16 @@ ES = {
         "Ya está bien comprimido: probá con un tamaño menor o con WebP",
     "target {label}": "objetivo {label}",
     "quality {q}": "calidad {q}",
+    # video compress
+    "Compress video": "Comprimir video",
+    "High": "Alta",
+    "Medium": "Media",
+    "Small file": "Liviana",
+    "Keep the sound": "Mantener el sonido",
+    "Long videos can take a while: the notification shows the progress.":
+        "Los videos largos pueden tardar: la notificación muestra el avance.",
+    "no sound": "sin sonido",
+    "Compressing video…": "Comprimiendo video…",
     # resize
     "Presets — percent or longest side in px": "Atajos: porcentaje o lado mayor en px",
     "Exact size": "Tamaño exacto",

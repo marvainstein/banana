@@ -20,7 +20,7 @@ from .radial import Item, RadialMenu
 from .settings import Settings, SettingsWindow, WelcomeWindow, TRIGGERS
 from .toasts import ToastStack
 from .trigger import BananaWatcher
-from .util import UserError, category, file_size, human_size, keep, release
+from .util import UserError, category, file_size, human_size, keep, release, set_progress_callback
 
 APP_NAME = "Banana"
 VERSION = __version__
@@ -43,16 +43,21 @@ HINTS = {
 FORMAT_HINTS = {"JPG": "Small, universal", "PNG": "Lossless · transparency", "WEBP": "Smallest for web",
                 "HEIC": "iPhone format", "TIFF": "Print · archival", "AVIF": "Next-gen, tiny",
                 "BMP": "Uncompressed", "PDF": "Document", "ICO": "Windows icon", "GIF": "Legacy web",
-                "DOCX": "Editable Word", "TXT": "Plain text"}
+                "DOCX": "Editable Word", "TXT": "Plain text",
+                "MP4": "Plays everywhere", "MOV": "QuickTime · Apple", "WEBM": "For the web",
+                "MP3": "Audio only", "M4A": "Audio · Apple", "WAV": "Audio · uncompressed",
+                "FLAC": "Audio · lossless", "OGG": "Audio · open format"}
 
 IMAGE_TOOLS = ["Compress", "Resize", "Crop", "Edit", "Annotate", "Redact", "Add BG", "Metadata"]
 PDF_TOOLS = ["Compress", "Split", "Rotate", "Protect", "Extract", "Metadata"]
+VIDEO_TOOLS = ["Compress"]
 
 
 # ---------------------------------------------------------------- background jobs
 class _Sig(QObject):
     done = Signal(object)
     failed = Signal(str)
+    progress = Signal(float)      # 0..1, from long jobs (video)
 
 
 class Job(QRunnable):
@@ -62,6 +67,7 @@ class Job(QRunnable):
         self.sig = _Sig()
 
     def run(self):
+        set_progress_callback(self.sig.progress.emit)
         try:
             outs = self.fn() or []
             self.sig.done.emit(report.summarize(self.action, self.srcs, outs, self.extra))
@@ -70,6 +76,8 @@ class Job(QRunnable):
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             self.sig.failed.emit(friendly_error(e))
+        finally:
+            set_progress_callback(None)   # pool threads are reused
 
 
 def friendly_error(e: Exception) -> str:
@@ -257,6 +265,8 @@ class BananaApp(QObject):
         elif cat == "pdf":
             names = PDF_TOOLS[:3] + (["Merge"] if len(same) > 1 else []) + PDF_TOOLS[3:]
             rings[tr("Tools")] = [Item(tr(n), GLYPHS[n], key=f"tool:{n}", hint=tr(HINTS[n])) for n in names]
+        elif cat == "video":
+            rings[tr("Tools")] = [Item(tr(n), GLYPHS[n], key=f"tool:{n}", hint=tr(HINTS[n])) for n in VIDEO_TOOLS]
         return rings
 
     # ------------------------------------------------------------ actions
@@ -272,6 +282,13 @@ class BananaApp(QObject):
                 verb = tr("Converting to {fmt}…", fmt=name)
                 self.submit(f"convert:{name}", paths,
                             lambda: [o for p in paths for o in convert.convert(p, cat, name)], verb)
+            return
+        if cat == "video":
+            try:
+                if name == "Compress":
+                    self.open_window(tools.VideoCompressWindow(paths, self.notify))
+            except UserError as e:
+                self.toasts.error(tr("Couldn't open {name}", name=tr(name)), str(e))
             return
         if cat == "pdf":
             if name == "Merge":
@@ -316,13 +333,23 @@ class BananaApp(QObject):
     def submit(self, action: str, srcs: list, fn, working: str | None = None, extra: str = ""):
         """Run in the background. A spinner card appears only if it takes > 150 ms."""
         working = working or tr("Working…")
-        state = {"card": None, "finished": False}
+        state = {"card": None, "finished": False, "pct": None}
         names = Path(srcs[0]).name if len(srcs) == 1 else tr("{n} files", n=len(srcs))
+
+        def detail():
+            return names if state["pct"] is None else f"{names}  ·  {state['pct']}%"
 
         def show_spinner():
             if not state["finished"]:
                 state["card"] = self.toasts.new()
-                state["card"].working(working, names)
+                state["card"].working(working, detail())
+
+        def progressed(f):
+            pct = int(f * 100)
+            if pct != state["pct"]:
+                state["pct"] = pct
+                if state["card"] is not None and not state["finished"]:
+                    state["card"].working(working, detail())
 
         QTimer.singleShot(150, show_spinner)
         job = Job(action, srcs, fn, extra)
@@ -341,6 +368,7 @@ class BananaApp(QObject):
 
         job.sig.done.connect(done)
         job.sig.failed.connect(failed)
+        job.sig.progress.connect(progressed)
         self.pool.start(keep(job))
 
     def notify(self, action: str, srcs: list, outs: list, extra: str = ""):
@@ -511,8 +539,19 @@ def selftest() -> int:
             imaging.add_background(convert.open_image(src), imaging.Background())
             imaging.compress_pdf(pdf)
             imaging.protect_pdf(pdf, "pw")
-            from . import liquid
+            from . import liquid, media
             liquid.render(Image.new("RGB", (80, 80)), liquid.sdf_circle(80, 80, 40, 40, 30))
+            # FFmpeg must be inside the build: make a 1 s clip, convert it, pull its sound
+            import subprocess
+            clip = Path(d) / "c.mov"
+            subprocess.run([media.ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                            "testsrc2=size=160x90:rate=10:duration=1", "-f", "lavfi", "-i",
+                            "sine=duration=1", "-c:v", "libx264", "-c:a", "aac", "-shortest", str(clip)],
+                           check=True, **media._popen_kw())
+            convert.convert(clip, "video", "MP4")
+            convert.convert(clip, "video", "MP3")
+            media.compress(clip, "small", 80)
+            tools.VideoCompressWindow([str(clip)], lambda *a, **k: None).close()
             menu = RadialMenu(lambda p: {"Convert": [Item("PNG")]}, lambda p: "1 KB")
             menu._load([str(src)])
             n = lambda *a, **k: None

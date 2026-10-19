@@ -7,7 +7,7 @@ from PySide6.QtCore import QSettings, Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLabel,
                                QPushButton, QSlider, QVBoxLayout)
 
-from . import __version__, i18n
+from . import __version__, glass, i18n
 from .i18n import tr
 from .util import CONFIG
 from .window import GlassWindow
@@ -229,7 +229,8 @@ class WelcomeWindow(GlassWindow):
             badge = QLabel(n)
             badge.setAlignment(Qt.AlignCenter)
             badge.setFixedSize(34, 34)
-            badge.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #ff8a5c, stop:1 #ff4f8b);"
+            badge.setStyleSheet(f"background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {glass.ACCENT_A}, "
+                                f"stop:1 {glass.ACCENT_C}); color: {glass.INK};"
                                 "border-radius: 17px; font-weight: 700; font-size: 12pt;")
             row.addWidget(badge)
             col = QVBoxLayout()

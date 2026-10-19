@@ -503,7 +503,7 @@ def apply_adjust(im: Image.Image, a: Adjust) -> Image.Image:
 # ---------------------------------------------------------------- add background
 @dataclass
 class Background:
-    colors: list[str] = field(default_factory=lambda: ["#ff9a5a", "#ff3d6e", "#7b5cff"])
+    colors: list[str] = field(default_factory=lambda: ["#fff3a0", "#ffd23f", "#f2a516"])
     angle: float = 135.0       # degrees, CSS-style
     padding: float = 0.12      # fraction of the longer image side
     radius: int = 24           # px on the source image scale

@@ -89,22 +89,23 @@ def make_tray_icon() -> QIcon:
     """macOS menu bar wants a monochrome 'template' image; Windows gets the colour icon."""
     if not IS_MAC:
         return make_icon()
-    pm = QPixmap(44, 44)
+    from PySide6.QtGui import QPen
+    from . import shape
+    s = 44
+    pm = QPixmap(s, s)
     pm.fill(Qt.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
-    from PySide6.QtGui import QPen
-    p.setPen(QPen(QColor(0, 0, 0), 4.5))
-    p.drawEllipse(QPointF(22, 22), 14, 14)
+    p.fillPath(shape.body(s).united(shape.stem(s)), QColor(0, 0, 0))
+    p.setCompositionMode(QPainter.CompositionMode_Clear)   # gaps between segments
+    p.setPen(QPen(QColor(0, 0, 0), 1.6, Qt.SolidLine, Qt.FlatCap))
+    for a, b in shape.segment_cuts(s, 3):
+        p.drawLine(a, b)
+    p.setCompositionMode(QPainter.CompositionMode_SourceOver)
     p.setPen(Qt.NoPen)
     p.setBrush(QColor(0, 0, 0))
-    p.drawEllipse(QPointF(22, 22), 5, 5)
-    for a in range(0, 360, 45):  # petal gaps
-        import math
-        x, y = 22 + 14 * math.cos(math.radians(a + 22.5)), 22 + 14 * math.sin(math.radians(a + 22.5))
-        p.setCompositionMode(QPainter.CompositionMode_Clear)
-        p.drawEllipse(QPointF(x, y), 2.2, 2.2)
-        p.setCompositionMode(QPainter.CompositionMode_SourceOver)
+    r = shape.hub_radius(s) * 0.55
+    p.drawEllipse(shape.hub_center(s), r, r)              # the dot where the cursor sits
     p.end()
     pm.setDevicePixelRatio(2.0)
     icon = QIcon(pm)

@@ -15,9 +15,11 @@ IRIDESCENT = ["#ff6b9d", "#ffb36b", "#ffe66b", "#7dffb0", "#6bd5ff", "#8a7bff", 
 
 TEXT = "#ffffff"
 TEXT_DIM = "rgba(255,255,255,0.68)"
-ACCENT_A = "#ff8a5c"
-ACCENT_B = "#ff4f8b"
-ACCENT_C = "#8a6bff"
+# banana: pale yellow → ripe yellow → golden
+ACCENT_A = "#ffe45c"
+ACCENT_B = "#ffc72c"
+ACCENT_C = "#f2a516"
+INK = "#2d2300"          # text on the yellow accents (white wouldn't read)
 
 
 def iridescent_pen(center: QPointF, width: float, alpha: int = 200, angle: float = 30) -> QPen:
@@ -129,14 +131,15 @@ QPushButton {{
 QPushButton:hover {{ background: rgba(255,255,255,0.22); }}
 QPushButton:pressed {{ background: rgba(255,255,255,0.08); }}
 QPushButton:checked {{
-  background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 rgba(255,138,92,0.85), stop:1 rgba(255,79,139,0.85));
-  border: 1px solid rgba(255,255,255,0.55);
+  background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 rgba(255,228,92,0.9), stop:1 rgba(255,199,44,0.9));
+  border: 1px solid rgba(255,255,255,0.55); color: {INK};
 }}
 QPushButton#primary {{
   background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {ACCENT_A}, stop:0.55 {ACCENT_B}, stop:1 {ACCENT_C});
   border: 1px solid rgba(255,255,255,0.55); border-top-color: rgba(255,255,255,0.9);
-  font-weight: 600; padding: 7px 20px; border-radius: 16px;
+  font-weight: 600; padding: 7px 20px; border-radius: 16px; color: {INK};
 }}
+QPushButton#primary:disabled {{ color: rgba(45,35,0,0.45); }}
 QPushButton#primary:hover {{ border: 1px solid #ffffff; }}
 QPushButton#chrome {{ background: transparent; border: none; padding: 2px 8px; font-size: 11pt; border-radius: 6px; }}
 QPushButton#chrome:hover {{ background: rgba(255,80,100,0.6); }}
@@ -144,7 +147,7 @@ QPushButton#swatch {{ border-radius: 12px; padding: 0; min-width: 24px; max-widt
 QPushButton#swatch:checked {{ border: 2px solid #ffffff; }}
 QSlider::groove:horizontal {{ height: 4px; background: rgba(255,255,255,0.22); border-radius: 2px; }}
 QSlider::sub-page:horizontal {{
-  background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #ff9a6b, stop:0.5 #ff5f9a, stop:1 #8f7bff); border-radius: 2px;
+  background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 {ACCENT_A}, stop:0.5 {ACCENT_B}, stop:1 {ACCENT_C}); border-radius: 2px;
 }}
 QSlider::handle:horizontal {{
   background: #ffffff; width: 14px; height: 14px; margin: -6px 0; border-radius: 7px;
@@ -153,7 +156,7 @@ QSlider::handle:horizontal {{
 QSpinBox, QLineEdit, QComboBox {{
   background: rgba(0,0,0,0.16); border: 1px solid rgba(255,255,255,0.22);
   border-bottom-color: rgba(255,255,255,0.40);
-  border-radius: 10px; padding: 4px 8px; selection-background-color: {ACCENT_B};
+  border-radius: 10px; padding: 4px 8px; selection-background-color: {ACCENT_B}; selection-color: {INK};
 }}
 QLineEdit:focus, QSpinBox:focus {{ border: 1px solid rgba(255,255,255,0.7); }}
 QFrame#card {{ background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; }}

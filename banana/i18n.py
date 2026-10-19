@@ -207,7 +207,7 @@ ES = {
     "Cropping…": "Recortando…",
     # add background
     "Background": "Fondo",
-    "Sunset": "Atardecer", "Prism": "Prisma", "Peach": "Durazno", "Aurora": "Aurora", "Mint": "Menta",
+    "Banana": "Banana", "Sunset": "Atardecer", "Prism": "Prisma", "Peach": "Durazno", "Aurora": "Aurora", "Mint": "Menta",
     "Ocean": "Océano", "Dusk": "Crepúsculo", "Lemon": "Limón", "Night": "Noche", "Rose": "Rosa",
     "Custom colour": "Color a elección",
     "Background colour": "Color de fondo",

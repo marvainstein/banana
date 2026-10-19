@@ -52,7 +52,9 @@ class Info:
     width: int = 0              # as stored (before any rotation flag)
     height: int = 0
     vcodec: str = ""            # "" when there's no video (cover art doesn't count)
-    acodec: str = ""            # "" when there's no audio
+    acodec: str = ""            # "" when there's no audio FFmpeg can decode
+    video_index: int = 0        # which video / audio stream to use (0:v:N, 0:a:N)
+    audio_index: int = 0
 
     @property
     def has_video(self) -> bool:
@@ -67,25 +69,40 @@ def probe(src: str | Path) -> Info:
     """Read duration, size and codecs from `ffmpeg -i` (imageio-ffmpeg ships no ffprobe)."""
     r = subprocess.run([ffmpeg_exe(), "-hide_banner", "-i", str(src)], capture_output=True,
                        text=True, errors="replace", **_popen_kw())
-    err = r.stderr
+    info = parse_probe(r.stderr)
+    if not (info.has_video or info.has_audio):
+        raise UserError(tr("This file doesn't look like a video or audio file."))
+    return info
+
+
+def parse_probe(err: str) -> Info:
     info = Info()
     m = re.search(r"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)", err)
     if m:
         info.duration = int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3])
+    n_video = n_audio = 0
+    audio: list[tuple[int, str]] = []
     for line in err.splitlines():
         if "Stream #" not in line:
             continue
         v = re.search(r"Video: (\w+)", line)
-        if v and "attached pic" not in line and not info.vcodec:
-            info.vcodec = v[1]
-            d = re.search(r", (\d{2,5})x(\d{2,5})", line)
-            if d:
-                info.width, info.height = int(d[1]), int(d[2])
+        if v:
+            if "attached pic" not in line and not info.vcodec:
+                info.vcodec, info.video_index = v[1], n_video
+                d = re.search(r", (\d{2,5})x(\d{2,5})", line)
+                if d:
+                    info.width, info.height = int(d[1]), int(d[2])
+            n_video += 1
         a = re.search(r"Audio: (\w+)", line)
-        if a and not info.acodec:
-            info.acodec = a[1]
-    if not (info.has_video or info.has_audio):
-        raise UserError(tr("This file doesn't look like a video or audio file."))
+        if a:
+            audio.append((n_audio, a[1]))
+            n_audio += 1
+    # Pick the audio ourselves: left alone, FFmpeg takes the track with most channels, and
+    # iPhones add a 4-channel spatial-audio track (APAC) it can't decode ("none") next to
+    # the normal AAC one. Prefer AAC, else any track it can decode.
+    usable = sorted((t for t in audio if t[1] != "none"), key=lambda t: t[1] != "aac")
+    if usable:
+        info.audio_index, info.acodec = usable[0]
     return info
 
 
@@ -113,11 +130,21 @@ def _run(src: Path, args: list[str], out: Path, duration: float):
         proc.wait()
         if proc.returncode != 0:
             log.seek(0)
-            tail = [ln for ln in log.read().decode("utf-8", "replace").splitlines() if ln.strip()][-1:]
+            lines = [ln for ln in log.read().decode("utf-8", "replace").splitlines() if ln.strip()]
+            print(f"ffmpeg failed ({proc.returncode}): {' '.join(cmd)}\n  " + "\n  ".join(lines[-25:]), flush=True)
+            tail = lines[-1:]
             if tmp.exists():
                 tmp.unlink()
             raise UserError(tr("FFmpeg couldn't process this file.") + (f" ({tail[0][:160]})" if tail else ""))
     os.replace(tmp, out)
+
+
+def _vmap(info: Info) -> list[str]:
+    return ["-map", f"0:v:{info.video_index}"]
+
+
+def _amap(info: Info) -> list[str]:
+    return ["-map", f"0:a:{info.audio_index}"] if info.has_audio else []
 
 
 def _scale(max_side: int) -> str:
@@ -146,29 +173,30 @@ def convert(src: str | Path, target: str) -> list[Path]:
                  "M4A": ["-c:a", "copy"] if info.acodec == "aac" else ["-c:a", "aac", "-b:a", "192k"],
                  "WAV": ["-c:a", "pcm_s16le"], "FLAC": ["-c:a", "flac"],
                  "OGG": ["-c:a", "libvorbis", "-q:a", "5"]}[target]
-        _run(src, ["-vn", "-map_metadata", "0", *codec], out, info.duration)
+        _run(src, [*_amap(info), "-vn", "-map_metadata", "0", *codec], out, info.duration)
         return [out]
     if not info.has_video:
         raise UserError(tr("This file has no video."))
     if target == "GIF":
         vf = (f"fps={GIF_FPS},{_scale(GIF_SIDE)}:flags=lanczos,"
               "split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4")
-        _run(src, ["-an", "-vf", vf, "-loop", "0"], out, info.duration)
+        _run(src, [*_vmap(info), "-an", "-vf", vf, "-loop", "0"], out, info.duration)
         return [out]
     if target == "WEBM":
-        _run(src, ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1", "-deadline", "good",
+        _run(src, [*_vmap(info), *_amap(info), "-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1", "-deadline", "good",
                    "-cpu-used", "4", "-c:a", "libopus", "-b:a", "128k"], out, info.duration)
         return [out]
     # MP4 / MOV: H.264 and HEVC (what phones record) just change container: instant, lossless
     if info.vcodec in ("h264", "hevc") and info.acodec in ("", "aac", "mp3", "alac"):
         tag = ["-tag:v", "hvc1"] if info.vcodec == "hevc" else []   # so Apple players open HEVC
         try:
-            _run(src, ["-map", "0:v:0", "-map", "0:a?", "-c", "copy", *tag, "-movflags", "+faststart"],
+            _run(src, [*_vmap(info), *_amap(info), "-c", "copy", *tag, "-movflags", "+faststart"],
                  out, info.duration)
             return [out]
         except UserError:
             pass   # odd streams: re-encode below
-    _run(src, [*H264, "-crf", "20", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart"],
+    _run(src, [*_vmap(info), *_amap(info), *H264, "-crf", "20", "-c:a", "aac", "-b:a", "160k",
+               "-movflags", "+faststart"],
          out, info.duration)
     return [out]
 
@@ -182,10 +210,10 @@ def compress(src: str | Path, quality: str = "medium", max_side: int | None = No
     if not info.has_video:
         raise UserError(tr("This file has no video."))
     crf, abr = QUALITY[quality]
-    args = [*H264, "-crf", str(crf)]
+    args = [*_vmap(info), *H264, "-crf", str(crf)]
     if max_side:
         args += ["-vf", _scale(max_side)]
-    args += ["-c:a", "aac", "-b:a", abr] if keep_audio and info.has_audio else ["-an"]
+    args += [*_amap(info), "-c:a", "aac", "-b:a", abr] if keep_audio and info.has_audio else ["-an"]
     out = sibling(src, file_label("Compressed"), ".mp4")
     _run(src, [*args, "-movflags", "+faststart"], out, info.duration)
     return out

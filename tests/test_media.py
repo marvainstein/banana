@@ -30,6 +30,25 @@ def make_video(path: Path, vcodec="libx264", size="640x360", seconds=2, audio=Tr
     return path
 
 
+IPHONE = """
+  Duration: 00:00:05.03, start: 0.000000, bitrate: 12000 kb/s
+  Stream #0:0[0x1](und): Video: hevc (Main 10) (hvc1 / 0x31637668), yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67), 1920x1080, 9000 kb/s, 29.98 fps, 30 tbr, 600 tbn (default)
+  Stream #0:1[0x2](und): Audio: none (apac / 0x63617061), 48000 Hz, 4 channels, 600 kb/s (default)
+  Stream #0:2[0x3](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 166 kb/s
+  Stream #0:3[0x4](und): Data: none (mebx / 0x7862656D), 0 kb/s (default)
+"""
+
+
+def test_iphone_spatial_audio_uses_the_aac_track():
+    """FFmpeg can't decode the 4-channel spatial-audio track and would pick it by default."""
+    info = media.parse_probe(IPHONE)
+    assert (info.vcodec, info.width, info.height, round(info.duration, 2)) == ("hevc", 1920, 1080, 5.03)
+    assert (info.acodec, info.audio_index) == ("aac", 1)
+    assert media._amap(info) == ["-map", "0:a:1"]
+    only_spatial = media.parse_probe(IPHONE.replace("Audio: aac (LC)", "Audio: none (LC)"))
+    assert not only_spatial.has_audio
+
+
 def test_categories_and_menu():
     assert category("a.MOV") == "video" and category("b.m4a") == "audio"
     assert "MP4" in convert.targets_for("video", ".mov") and "MOV" not in convert.targets_for("video", ".mov")

@@ -12,7 +12,7 @@ from typing import Callable
 
 from PySide6.QtCore import (QEasingCurve, QObject, QPoint, QPointF, QRectF, QRunnable, Qt,
                             QThreadPool, QTimer, QVariantAnimation, Signal)
-from PySide6.QtGui import (QColor, QCursor, QFont, QGuiApplication, QImage, QPainter,
+from PySide6.QtGui import (QColor, QCursor, QFont, QFontMetrics, QGuiApplication, QImage, QPainter,
                            QPainterPath, QPen, QPixmap, QRadialGradient)
 from PySide6.QtWidgets import QWidget
 
@@ -56,28 +56,48 @@ def angles(n: int, i: int) -> tuple[float, float]:
     return start + GAP_DEG / 2, start + span - GAP_DEG / 2
 
 
-# "banana" (Settings → Menu shape): the petals follow a crescent under the hub, open at the
-# top, thickest in the middle and thinning towards the tips; "round" is the full ring.
-BANANA_ARC = 250.0      # degrees covered, centred at 6 o'clock
-BANANA_OUT = 166        # outer radius in the middle of the banana
-BANANA_TIP = 0.60       # thickness at the tips, relative to the middle
+# "banana" (Settings → Menu shape): a long band under the hub that curls up around it at the
+# tips, like the app icon. Its petals are sectors of a big circle whose centre sits far above
+# the hub, so the band is nearly flat in the middle; it's thickest there and thins towards the
+# tips. "round" is the original ring around the hub.
+BANANA_W, BANANA_H = 670, 330   # window
+BANANA_HUB_Y = 130              # hub centre (= the cursor), from the top
+BANANA_R0 = 260                 # inner radius of the band, around the far centre
+BANANA_THICK = 96               # band thickness in the middle
+BANANA_TIP = 0.62               # thickness at the tips, relative to the middle
+BANANA_ARC = 130.0              # degrees covered, centred at 6 o'clock
+BANANA_GAP = 0.9                # degrees between petals (≈ 4 px at that radius)
+BANANA_CORNER = 6
 
 
 def banana() -> bool:
     return CONFIG.get("menu_shape", "banana") == "banana"
 
 
-def petal(n: int, i: int) -> tuple[float, float, float, float]:
-    """(a0, a1, r0, r1) of petal i of n: angles in degrees (Qt: 0 = 3 o'clock, CCW), radii."""
+def frame() -> tuple[int, int, QPointF]:
+    """Window width, height and hub centre (where the cursor is) for the current shape."""
+    if banana():
+        return BANANA_W, BANANA_H, QPointF(BANANA_W / 2, BANANA_HUB_Y)
+    return SIZE, SIZE, QPointF(SIZE / 2, SIZE / 2)
+
+
+def gap_deg() -> float:
+    return BANANA_GAP if banana() else GAP_DEG
+
+
+def petal(n: int, i: int) -> tuple[QPointF, float, float, float, float]:
+    """(centre, a0, a1, r0, r1) of petal i of n: an annular sector around `centre`, angles in
+    degrees (Qt: 0 = 3 o'clock, CCW), radii in px."""
+    hub = frame()[2]
     if not banana():
         a0, a1 = angles(n, i)
-        return a0, a1, R_IN, R_OUT
+        return hub, a0, a1, R_IN, R_OUT
+    centre = QPointF(hub.x(), hub.y() + R_HUB + 16 - BANANA_R0)   # band starts just under the hub
     span = BANANA_ARC / n
-    left = 270 - BANANA_ARC / 2               # left tip; going CCW passes under the hub
-    a0 = left + i * span
-    t = (i + 0.5) / n                          # 0..1 along the banana
-    thick = BANANA_TIP + (1 - BANANA_TIP) * math.sin(math.pi * t)
-    return a0 + GAP_DEG / 2, a0 + span - GAP_DEG / 2, R_IN, R_IN + (BANANA_OUT - R_IN) * thick
+    a0 = 270 - BANANA_ARC / 2 + i * span       # left to right, under the hub
+    t = (i + 0.5) / n                           # 0..1 along the banana
+    thick = BANANA_THICK * (BANANA_TIP + (1 - BANANA_TIP) * math.sin(math.pi * t))
+    return centre, a0 + BANANA_GAP / 2, a0 + span - BANANA_GAP / 2, BANANA_R0, BANANA_R0 + thick
 
 
 # ---------------------------------------------------------------- background render
@@ -94,11 +114,12 @@ class _RenderJob(QRunnable):
     def run(self):
         try:
             from . import liquid
-            c = SIZE / 2
-            fields = [liquid.sdf_circle(SIZE, SIZE, c, c, R_HUB)]
+            w, h, hub = frame()
+            fields = [liquid.sdf_circle(w, h, hub.x(), hub.y(), R_HUB)]
             for i in range(self.n):
-                a0, a1, r0, r1 = petal(self.n, i)
-                fields.append(liquid.sdf_ring_sector(SIZE, SIZE, c, c, r0, r1, a0, a1, CORNER))
+                pc, a0, a1, r0, r1 = petal(self.n, i)
+                fields.append(liquid.sdf_ring_sector(w, h, pc.x(), pc.y(), r0, r1, a0, a1,
+                                                     BANANA_CORNER if banana() else CORNER))
             sdf = liquid.union(*fields)
             img, light = liquid.render(self.backdrop, sdf, liquid.GlassStyle())
             sh = liquid.shadow(sdf, spread=26, opacity=0.42 if light else 0.30, offset=(0, 8))
@@ -127,14 +148,14 @@ class RadialMenu(QWidget):
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
-        self.resize(SIZE, SIZE)
+        self.resize(*frame()[:2])
 
         self.paths: list[str] = []
         self.rings: dict[str, list[Item]] = {}
         self.ring_names: list[str] = []
         self.ring_idx = 0
         self.hover = -1          # petal index, -2 = hub, -1 = none
-        self.cursor_pos = QPointF(SIZE / 2, SIZE / 2)
+        self.cursor_pos = frame()[2]
         self.hub_text = ""
         self.backdrop: QPixmap | None = None     # blurred, for the instant fallback
         self._raw_backdrop = None                 # PIL image for the liquid renderer
@@ -161,18 +182,20 @@ class RadialMenu(QWidget):
     # ------------------------------------------------------------ show / hide
     def popup(self, pos: QPoint | None = None, paths: list[str] | None = None):
         pos = pos or QCursor.pos()
-        tl = pos - QPoint(SIZE // 2, SIZE // 2)
+        w, h, hub = frame()
+        self.resize(w, h)
+        tl = pos - QPoint(round(hub.x()), round(hub.y()))
         scr = QGuiApplication.screenAt(pos) or QGuiApplication.primaryScreen()
         g = scr.geometry()
-        tl.setX(min(max(tl.x(), g.left()), g.right() - SIZE))
-        tl.setY(min(max(tl.y(), g.top()), g.bottom() - SIZE))
+        tl.setX(min(max(tl.x(), g.left()), g.right() - w))
+        tl.setY(min(max(tl.y(), g.top()), g.bottom() - h))
         # snapshot what's underneath *before* we appear
         self._serial += 1
         self.liquid = {}
         try:
             if sys.platform == "darwin":
                 # macOS captures "below the drag window": the drag picture never gets in
-                raw = glass.grab_screen(tl.x(), tl.y(), SIZE, SIZE)
+                raw = glass.grab_screen(tl.x(), tl.y(), w, h)
                 if raw is None:
                     raise RuntimeError("capture failed")
                 from . import platform_mac
@@ -185,20 +208,20 @@ class RadialMenu(QWidget):
                 shot = QPixmap.fromImage(glass.qimage_from_pil(raw))
             else:
                 with glass.hidden_drag_images() as hid:
-                    shot = scr.grabWindow(0, tl.x() - g.left(), tl.y() - g.top(), SIZE, SIZE)
+                    shot = scr.grabWindow(0, tl.x() - g.left(), tl.y() - g.top(), w, h)
                 if hid.hwnds:
                     print(f"menu: hid {len(hid.hwnds)} drag image(s) during capture: {'; '.join(hid.info)}", flush=True)
                 elif hid.info:
                     print(f"menu: drag-image sweep: {'; '.join(hid.info)}", flush=True)
                 raw = glass.pil_from_qimage(
-                    shot.toImage().scaled(SIZE, SIZE, Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
+                    shot.toImage().scaled(w, h, Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
                 if sys.platform.startswith("linux") and paths is None:
                     # X11 drag icons (Thunar/GTK) sit on the cursor: erase that patch
                     cx, cy = pos.x() - tl.x(), pos.y() - tl.y()
                     hid.rects = [(pos.x() - 60, pos.y() - 60, pos.x() + 60, pos.y() + 60)]
                 if hid.rects:
                     # belt and braces: erase where the drag picture was, in case it was captured anyway
-                    k = SIZE / max(1, shot.width())
+                    k = w / max(1, shot.width())
                     local = [(int((x0 - tl.x()) * k), int((y0 - tl.y()) * k), int((x1 - tl.x()) * k), int((y1 - tl.y()) * k))
                              for (x0, y0, x1, y1) in hid.rects]
                     raw = glass.inpaint_rects(raw, local)
@@ -274,14 +297,14 @@ class RadialMenu(QWidget):
         """No compositor (XFCE etc.): cut the window to the menu's outline."""
         if not glass.no_compositor():
             return
-        c = QPointF(SIZE / 2, SIZE / 2)
+        c = frame()[2]
         path = QPainterPath()
         path.addEllipse(c, R_HUB + 2, R_HUB + 2)
-        n = len(self.items) or 0
+        n = len(self.items) or (7 if banana() else 0)
         if n:
             for i in range(n):
-                a0, a1, r0, r1 = petal(n, i)
-                path = path.united(sector_path(c, r0 - 2, r1 + 14, a0 - 1, a1 + 1))
+                pc, a0, a1, r0, r1 = petal(n, i)
+                path = path.united(sector_path(pc, r0 - 2, r1 + 14, a0 - 1, a1 + 1))
         else:
             outer = QPainterPath()
             outer.addEllipse(c, R_OUT + 14, R_OUT + 14)
@@ -338,19 +361,19 @@ class RadialMenu(QWidget):
         return angles(n, i)
 
     def hit(self, pos: QPointF) -> int:
-        c = QPointF(SIZE / 2, SIZE / 2)
-        dx, dy = pos.x() - c.x(), c.y() - pos.y()
-        d = math.hypot(dx, dy)
-        if d <= R_HUB + 4:
+        c = frame()[2]
+        if math.hypot(pos.x() - c.x(), pos.y() - c.y()) <= R_HUB + 4:
             return -2
         if not self.items:
             return -1
-        ang = math.degrees(math.atan2(dy, dx))
-        n = len(self.items)
+        n, gap = len(self.items), gap_deg()
         for i in range(n):
-            a0, a1, _, r1 = petal(n, i)
+            pc, a0, a1, r0, r1 = petal(n, i)
+            dx, dy = pos.x() - pc.x(), pc.y() - pos.y()
+            d, ang = math.hypot(dx, dy), math.degrees(math.atan2(dy, dx))
+            lo = r0 - 20 if banana() else 0      # banana: nothing between the band and its far centre
             # half the gap on each side belongs to the petal, so there are no dead lines
-            if (ang - (a0 - GAP_DEG / 2)) % 360 <= (a1 - a0) + GAP_DEG and d <= r1 + 30:
+            if (ang - (a0 - gap / 2)) % 360 <= (a1 - a0) + gap and lo <= d <= r1 + 30:
                 return i
         return -1
 
@@ -449,7 +472,7 @@ class RadialMenu(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.TextAntialiasing)
         p.setRenderHint(QPainter.SmoothPixmapTransform)
-        c = QPointF(SIZE / 2, SIZE / 2)
+        c = frame()[2]
         t = self._t
         p.setOpacity(min(1.0, max(0.0, t * 1.5)))
         p.translate(c)
@@ -468,16 +491,17 @@ class RadialMenu(QWidget):
             self._paint_fallback(p, c, n)
 
         fg, fg_dim, shadow_col = self._text_colors()
-        rot = (1 - self._swap) * -22
+        rot = (1 - self._swap) * (-6 if banana() else -22)
         if n and banana():
-            self._paint_banana_ends(p, c, n)
+            self._paint_banana_ends(p, n)
         for i, it in enumerate(items):
-            a0, a1, r0, r1 = petal(n, i)
+            pc, a0, a1, r0, r1 = petal(n, i)
             h = self.spring[i] if i < len(self.spring) else 0.0
             if h > 0.001:
-                self._paint_hover(p, c, a0, a1, r0, r1, h, img if have_liquid else None)
-            self._petal_label(p, c, it, (a0 + a1) / 2 + rot, (r0 + r1) / 2 + h * 4, h,
-                              fg, shadow_col)
+                self._paint_hover(p, pc, a0, a1, r0, r1, h, img if have_liquid else None)
+            r = (r0 + r1) / 2
+            room = 2 * r * math.sin(math.radians(a1 - a0) / 2) - 10      # chord across the petal
+            self._petal_label(p, pc, it, (a0 + a1) / 2 + rot, r + h * 4, h, fg, shadow_col, room)
 
         self._paint_hub(p, c, fg, fg_dim, shadow_col)
 
@@ -487,31 +511,32 @@ class RadialMenu(QWidget):
         glass.paint_glass(p, hub, self.backdrop, QPointF(0, 0), tint=QColor(22, 18, 34, 80),
                           rainbow_alpha=150, highlight=1.3)
         for i in range(n):
-            a0, a1, r0, r1 = petal(n, i)
-            glass.paint_glass(p, sector_path(c, r0, r1, a0, a1), self.backdrop, QPointF(0, 0),
+            pc, a0, a1, r0, r1 = petal(n, i)
+            glass.paint_glass(p, sector_path(pc, r0, r1, a0, a1), self.backdrop, QPointF(0, 0),
                               tint=QColor(22, 18, 34, 62), rainbow_alpha=140)
 
-    def _paint_banana_ends(self, p: QPainter, c: QPointF, n: int):
+    def _paint_banana_ends(self, p: QPainter, n: int):
         """A stalk on the left tip and a dark end on the right one."""
-        a0, _, r0, r1 = petal(n, 0)
-        a = math.radians(a0 - 1)
+        c, a0, _, r0, r1 = petal(n, 0)
+        a = math.radians(a0 + 1.5)               # just inside the left tip
         r = (r0 + r1) / 2
         tip = QPointF(c.x() + r * math.cos(a), c.y() - r * math.sin(a))
+        out = math.degrees(math.atan2(math.cos(a), math.sin(a)))   # tangent, away from the band
         p.save()
         p.translate(tip)
-        p.rotate(-(a0 - 1) - 90 + 25)           # along the tangent, bent up a little
-        p.setPen(QPen(QColor(60, 40, 15, 140), 1))
-        p.setBrush(QColor(110, 85, 35, 230))
-        p.drawRoundedRect(QRectF(-6, -2, 12, 30), 5, 5)
+        p.rotate(out - 90 + 12)                  # the stalk continues the curve, bent up a bit
+        p.setPen(QPen(QColor(60, 40, 15, 160), 1))
+        p.setBrush(QColor(110, 85, 35, 235))
+        p.drawRoundedRect(QRectF(-6.5, 0, 13, 40), 6, 6)
         p.restore()
-        _, a1, r0, r1 = petal(n, n - 1)
+        c, _, a1, r0, r1 = petal(n, n - 1)
         a = math.radians(a1)
         r = (r0 + r1) / 2
         end = QPointF(c.x() + r * math.cos(a), c.y() - r * math.sin(a))
         g = QRadialGradient(end, (r1 - r0) * 0.55)
         g.setColorAt(0.0, QColor(80, 52, 18, 200))
         g.setColorAt(1.0, QColor(80, 52, 18, 0))
-        p.fillPath(sector_path(c, r0, r1, a1 - 14, a1), g)
+        p.fillPath(sector_path(c, r0, r1, a1 - 6, a1), g)
 
     def _paint_hover(self, p: QPainter, c: QPointF, a0: float, a1: float, r0: float, r1: float,
                      h: float, img: QImage | None):
@@ -591,8 +616,19 @@ class RadialMenu(QWidget):
         p.setPen(col)
         p.drawText(r, flags, text)
 
+    @staticmethod
+    def _fit_font(f: QFont, px: int, text: str, room: float) -> QFont:
+        """Largest size up to `px` (down to 8) at which `text` fits in `room` px."""
+        while px > 8:
+            f.setPixelSize(px)
+            if QFontMetrics(f).horizontalAdvance(text) <= room:
+                break
+            px -= 1
+        f.setPixelSize(px)
+        return f
+
     def _petal_label(self, p: QPainter, c: QPointF, it: Item, ang: float, r: float,
-                     h: float, fg: QColor, shadow_col: QColor):
+                     h: float, fg: QColor, shadow_col: QColor, room: float = 84):
         rad = math.radians(ang)
         push = 6 * h
         pt = QPointF(c.x() + (r + push) * math.cos(rad), c.y() - (r + push) * math.sin(rad))
@@ -605,15 +641,15 @@ class RadialMenu(QWidget):
             p.setFont(f)
             self._text(p, QRectF(pt.x() - 30, pt.y() - 24, 60, 24), it.glyph, col, shadow_col,
                        Qt.AlignHCenter | Qt.AlignBottom)
-            f.setPixelSize(10)
             f.setBold(True)
             f.setLetterSpacing(QFont.AbsoluteSpacing, 0.7)
-            p.setFont(f)
-            self._text(p, QRectF(pt.x() - 42, pt.y() + 1, 84, 16), it.label.upper(), col, shadow_col)
+            p.setFont(self._fit_font(f, 10, it.label.upper(), room))
+            w = max(84.0, room)
+            self._text(p, QRectF(pt.x() - w / 2, pt.y() + 1, w, 16), it.label.upper(), col, shadow_col)
         else:
-            f.setPixelSize(int(14 + 2 * h))
             f.setBold(True)
             f.setLetterSpacing(QFont.AbsoluteSpacing, 0.9)
-            p.setFont(f)
-            self._text(p, QRectF(pt.x() - 42, pt.y() - 12, 84, 24), it.label, col, shadow_col)
+            p.setFont(self._fit_font(f, int(14 + 2 * h), it.label, room))
+            w = max(84.0, room)
+            self._text(p, QRectF(pt.x() - w / 2, pt.y() - 12, w, 24), it.label, col, shadow_col)
         p.restore()

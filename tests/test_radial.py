@@ -27,22 +27,29 @@ def menu_with(n: int) -> radial.RadialMenu:
 @pytest.mark.parametrize("n", [2, 3, 6, 8, 10])
 def test_each_petal_is_hit_at_its_centre(shape, n):
     m = menu_with(n)
-    c = radial.SIZE / 2
+    w, h, hub = radial.frame()
+    assert m.width() == w and m.height() == h
     for i in range(n):
-        a0, a1, r0, r1 = radial.petal(n, i)
+        c, a0, a1, r0, r1 = radial.petal(n, i)
         a, r = math.radians((a0 + a1) / 2), (r0 + r1) / 2
-        assert m.hit(QPointF(c + r * math.cos(a), c - r * math.sin(a))) == i
-    assert m.hit(QPointF(c, c)) == -2                      # the hub
-    assert m.hit(QPointF(c, c - (radial.R_OUT + 60))) == -1  # far above
+        p = QPointF(c.x() + r * math.cos(a), c.y() - r * math.sin(a))
+        assert 0 <= p.x() <= w and 0 <= p.y() <= h       # drawn inside the window
+        assert m.hit(p) == i
+    assert m.hit(hub) == -2
+    # outside: above the banana's open top, or beyond the ring
+    up = 70 if shape == "banana" else radial.R_OUT + 60
+    assert m.hit(QPointF(hub.x(), hub.y() - up)) == -1
 
 
 def test_banana_is_open_at_the_top_and_thin_at_the_tips():
     CONFIG["menu_shape"] = "banana"
     try:
-        m = menu_with(8)
-        c = radial.SIZE / 2
-        assert m.hit(QPointF(c, c - 110)) == -1            # the gap above the hub
+        menu_with(8)
         tip, middle = radial.petal(8, 0), radial.petal(8, 3)
-        assert tip[3] < middle[3]
+        assert tip[4] - tip[3] < middle[4] - middle[3]     # thinner at the tips
+        w, h, hub = radial.frame()
+        assert w > 1.8 * h                                  # long, not round
+        c, a0, _, r0, _ = tip
+        assert c.y() - r0 * math.sin(math.radians(a0)) < hub.y()   # the tips curl up past the hub
     finally:
         CONFIG["menu_shape"] = "banana"

@@ -65,7 +65,7 @@ You can also right-click a file → **Banana…**, use **Send to → Banana**, o
 | File | Convert to | Tools |
 |---|---|---|
 | Images (JPG, PNG, WEBP, HEIC, AVIF, TIFF, BMP, GIF, ICO) | Any of those, or PDF. Several images become one combined PDF | **Compress** (by quality or to a target size such as "under 500 KB", with a before/after preview, several files at once) · **Resize** · **Crop** (ratios, live pixel size, rotate) · **Edit** (Auto, light/colour, rotate, flip, B&W, hold to compare) · **Annotate** (arrows, boxes, numbered steps, text, marker) · **Redact** · **Add BG** · **Metadata** (camera, date, GPS location with a map link; remove location only or remove everything) |
-| PDF | JPG or PNG (one per page), DOCX, TXT | Compress · Split · Rotate · Merge (drop several) · **Protect** (AES-256 password) · **Extract images** · Metadata |
+| PDF | JPG or PNG (one per page), DOCX, TXT, **EPUB** (an e-book that reflows: chapters from the bookmarks or headings, running heads and page numbers removed). **MOBI** and **AZW3** for Kindle too, if [Calibre](https://calibre-ebook.com) is installed | Compress · Split · Rotate · Merge (drop several) · **Protect** (AES-256 password) · **Extract images** · Metadata |
 | Word (.docx) | PDF (uses Microsoft Word if it's installed, otherwise a built-in renderer), TXT | — |
 | Text (.txt, .md, .csv…) | PDF, DOCX | — |
 | Video (MOV, MP4, MKV, WEBM, AVI…) | MP4, MOV (iPhone H.264/HEVC just changes container: instant, no quality loss), WEBM, GIF, and the sound alone as MP3, M4A or WAV | **Compress** (quality, max 1080p/720p/480p, optionally without sound; the notification shows the progress) |

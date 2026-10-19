@@ -43,7 +43,8 @@ HINTS = {
 FORMAT_HINTS = {"JPG": "Small, universal", "PNG": "Lossless · transparency", "WEBP": "Smallest for web",
                 "HEIC": "iPhone format", "TIFF": "Print · archival", "AVIF": "Next-gen, tiny",
                 "BMP": "Uncompressed", "PDF": "Document", "ICO": "Windows icon", "GIF": "Legacy web",
-                "DOCX": "Editable Word", "TXT": "Plain text",
+                "DOCX": "Editable Word", "TXT": "Plain text", "EPUB": "E-book · Apple Books",
+                "MOBI": "Older Kindles", "AZW3": "Kindle over USB",
                 "MP4": "Plays everywhere", "MOV": "QuickTime · Apple", "WEBM": "For the web",
                 "MP3": "Audio only", "M4A": "Audio · Apple", "WAV": "Audio · uncompressed",
                 "FLAC": "Audio · lossless", "OGG": "Audio · open format"}
@@ -258,6 +259,8 @@ class BananaApp(QObject):
             hint = tr(FORMAT_HINTS.get(t, ""))
             if cat == "image" and t == "PDF" and len(same) > 1:
                 hint = tr("{n} images → 1 PDF", n=len(same))
+            if t == "MOBI" and "AZW3" not in convert.targets_for(cat, ext):
+                hint = tr("Needs Calibre")
             convert_items.append(Item(t, key=f"convert:{t}", hint=hint))
         rings: dict[str, list[Item]] = {tr("Convert"): convert_items}
         if cat == "image":
@@ -535,9 +538,12 @@ def selftest() -> int:
                 convert.convert(src, "image", t)
             pdf = convert.convert(src, "image", "PDF")[0]
             for t in convert.PDF_TARGETS:
-                convert.convert(pdf, "pdf", t)
+                if t != "EPUB":   # this PDF is a picture; EPUB needs text (below)
+                    convert.convert(pdf, "pdf", t)
             (Path(d) / "n.txt").write_text("hello")
             docx = convert.convert(Path(d) / "n.txt", "text", "DOCX")[0]
+            (Path(d) / "book.txt").write_text("Chapter one\n\nA short story to make an e-book from.\n" * 20)
+            convert.convert(convert.convert(Path(d) / "book.txt", "text", "PDF")[0], "pdf", "EPUB")
             convert.convert(docx, "docx", "TXT")
             imaging.add_background(convert.open_image(src), imaging.Background())
             imaging.compress_pdf(pdf)

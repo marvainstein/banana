@@ -25,6 +25,7 @@ The version string lives in several places that must be bumped together: `banana
 **Layers.** The processing code has no UI, so it can be tested headless:
 - `util.py` holds the file categories (`category()` → image/pdf/docx/text/video/audio), the output-path rules (`sibling()` never overwrites and respects `CONFIG["output"]`), `UserError` (its message is shown to the user as-is), `keep()`/`release()`, and `progress()` for long jobs.
 - `convert.py` does the format conversions. `targets_for(cat, ext)` defines which targets the menu offers, and `convert(src, cat, target)` dispatches to them. Every function returns a list of output paths.
+- `ebook.py` turns a PDF into an EPUB 3 written by hand with `zipfile` (no dependency): it rebuilds the text from PyMuPDF's blocks, drops running heads/folios, joins hyphenated words and paragraphs split by page or column breaks, and splits chapters at the PDF's bookmarks or at the largest heading size that repeats on several pages. Scanned PDFs raise `UserError`. MOBI/AZW3 go through Calibre's `ebook-convert` when `calibre_cmd()` finds it (never bundled); without Calibre the menu still shows MOBI with a "Needs Calibre" hint. `tests/test_ebook.py` runs epubcheck when `EPUBCHECK_JAR` points to its jar.
 - `imaging.py` holds the pure image/PDF tool logic (compress, resize, metadata, split/merge/protect, redact, adjust, backgrounds).
 - `report.py` turns `(action, srcs, outs)` into the `Result` shown in a toast ("2.4 MB → 610 KB · 75% smaller").
 

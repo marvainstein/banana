@@ -25,7 +25,8 @@ except ImportError:  # pragma: no cover
     import fitz  # type: ignore
 
 IMAGE_TARGETS = ["PNG", "JPG", "WEBP", "HEIC", "TIFF", "AVIF", "BMP", "PDF", "ICO", "GIF"]
-PDF_TARGETS = ["JPG", "PNG", "DOCX", "TXT"]
+PDF_TARGETS = ["JPG", "PNG", "DOCX", "TXT", "EPUB"]
+KINDLE_TARGETS = ["MOBI", "AZW3"]   # made by Calibre from the EPUB (ebook.py)
 DOCX_TARGETS = ["PDF", "TXT"]
 TEXT_TARGETS = ["PDF", "DOCX"]
 
@@ -366,7 +367,11 @@ def targets_for(cat: str, src_ext: str) -> list[str]:
     if cat in ("video", "audio"):
         from . import media
         return media.targets_for(cat, src_ext)
-    return {"pdf": PDF_TARGETS, "docx": DOCX_TARGETS, "text": TEXT_TARGETS}.get(cat, [])
+    if cat == "pdf":
+        from . import ebook
+        # MOBI is always offered (it explains how to get Calibre); AZW3 only once Calibre is there
+        return PDF_TARGETS + (KINDLE_TARGETS if ebook.calibre_cmd() else ["MOBI"])
+    return {"docx": DOCX_TARGETS, "text": TEXT_TARGETS}.get(cat, [])
 
 
 def convert(src: str | Path, cat: str, target: str) -> list[Path]:
@@ -380,6 +385,12 @@ def convert(src: str | Path, cat: str, target: str) -> list[Path]:
             return pdf_to_txt(src)
         if target == "DOCX":
             return pdf_to_docx(src)
+        if target == "EPUB":
+            from . import ebook
+            return ebook.pdf_to_epub(src)
+        if target in KINDLE_TARGETS:
+            from . import ebook
+            return ebook.pdf_to_kindle(src, target)
     if cat == "docx":
         return docx_to_pdf(src) if target == "PDF" else docx_to_txt(src)
     if cat == "text":

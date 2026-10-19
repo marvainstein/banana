@@ -93,6 +93,19 @@ ES = {
     "Legacy web": "Web antigua",
     "Editable Word": "Word editable",
     "Plain text": "Texto plano",
+    "E-book · Apple Books": "Libro digital · Libros",
+    "Older Kindles": "Kindle antiguos",
+    "Kindle over USB": "Kindle por USB",
+    "Needs Calibre": "Requiere Calibre",
+    "This PDF has no text to put in an e-book: it looks like scanned pages. Run text recognition (OCR) on it first.":
+        "Este PDF no tiene texto para armar un libro digital: parecen páginas escaneadas. "
+        "Pasale primero un reconocimiento de texto (OCR).",
+    "{fmt} needs Calibre, which is free (calibre-ebook.com). Install it and try again, or convert to EPUB instead.":
+        "{fmt} requiere Calibre, que es gratis (calibre-ebook.com). Instalalo y volvé a intentar, "
+        "o convertí a EPUB.",
+    "Calibre couldn't make the {fmt} file.": "Calibre no pudo crear el archivo {fmt}.",
+    "Contents": "Índice",
+    "Chapter {n}": "Capítulo {n}",
     "Plays everywhere": "Se reproduce en todos lados",
     "QuickTime · Apple": "QuickTime · Apple",
     "For the web": "Para la web",

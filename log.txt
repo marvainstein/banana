@@ -1,0 +1,21 @@
+[   0.00] display :99 screen (1280, 800) cmd ['banana']
+[  16.22] PASS JPG → PNG                        9.6s  D-Photo.png · 2400×1600
+[  25.72] PASS JPG → WEBP                       8.9s  D-Photo.webp · 2400×1600
+[  35.78] PASS JPG → HEIC                       9.5s  D-Photo.heic · 2400×1600
+[  45.03] PASS JPG → PDF                        8.6s  D-Photo.pdf · 1 page(s)
+[  54.26] PASS PNG → JPG                        8.6s  D-Graphic.jpg · 800×533
+[  64.56] PASS PDF → JPG (3 pages)              9.7s  3 × .jpg
+[  73.81] PASS PDF → TXT                        8.6s  D-Report.txt
+[  83.06] PASS DOCX → PDF                       8.6s  D-Letter.pdf · 1 page(s)
+[  92.31] PASS TXT → PDF                        8.6s  D-Notes.pdf · 1 page(s)
+[ 102.42] PASS PDF Split                        9.5s  3 PDFs
+[ 112.54] PASS PDF Rotate                       9.5s  all pages at 90°
+[ 122.92] PASS PDF Compress                     9.8s  227 KB → 108 KB
+[ 134.05] PASS Merge 2 PDFs                    10.5s  5 pages
+[ 147.00] PASS Compress (window, Enter)        12.3s  354 KB → 112 KB · 69% smaller
+[ 160.02] PASS Resize 50% (window, Enter)      12.4s  2400×1600 → 1200×800
+[ 173.71] PASS Add BG (window, Enter)          13.1s  800×533 → 992×725
+[ 186.64] PASS Metadata: remove all (Enter)    12.3s  0 metadata fields left
+[ 199.53] PASS PDF Protect (password)          12.3s  AES-256, password works
+[ 208.17] PASS Open With → AVIF (click)         8.0s  D-Photo.avif · 2400×1600
+[ 208.24] DONE 19/19
